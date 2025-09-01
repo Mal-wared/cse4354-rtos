@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include "tm4c123gh6pm.h"
 #include "uart0.h"
+#include "atoi.h"
 
 // PortA masks
 #define UART_TX_MASK 2
@@ -161,11 +162,13 @@ void parseFields(USER_DATA* data)
     return;
 }
 
+// Gets the integer value of the desired field number
+// ** Assumes the entire field is an integer **
 int32_t getFieldInteger(USER_DATA* data, uint8_t fieldNumber)
 {
-    if (fieldNumber < data->fieldCount)
+    if (fieldNumber < data->fieldCount && data->fieldType[fieldNumber] == 'n')
     {
-        return data->fieldType[fieldNumber];
+        return atoi(&(data->buffer[data->fieldPosition[fieldNumber]]));
     }
     return 0;
 }
@@ -175,7 +178,7 @@ char* getFieldString(USER_DATA* data, uint8_t fieldNumber)
 {
     if (fieldNumber < data->fieldCount)
     {
-        char* fieldString = &(data->buffer[getFieldInteger(data, fieldNumber)]);
+        char* fieldString = &(data->buffer[data->fieldPosition[fieldNumber]]);
         return fieldString;
     }
     return (void*)0;
