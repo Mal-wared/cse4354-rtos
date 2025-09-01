@@ -44,7 +44,7 @@ typedef struct _USER_DATA
 void initUart0();
 void setUart0BaudRate(uint32_t baudRate, uint32_t fcyc);
 void putcUart0(char c);
-void putsUart0(char* str);
+void putsUart0(const char* str);
 char getcUart0();
 void getsUart0(USER_DATA* data);
 void parseFields(USER_DATA* data);

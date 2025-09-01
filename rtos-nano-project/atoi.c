@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 
 int atoi(const char *num) {
     int result = 0;
@@ -27,10 +28,57 @@ int atoi(const char *num) {
     return sign * result;
 }
 
+char tolower(char c) {
+    if (c >= 'A' && c <= 'Z') {
+        return c + 32;
+    }
+    return c;
+}
+
 int strcmp(const char *s1, const char *s2) {
     while (*s1 && (*s1 == *s2)) {
         s1++;
         s2++;
     }
-    return (uint8_t)*s1 - (uint8_t)*s2;
+    return (uint8_t)tolower(*s1) - (uint8_t)tolower(*s2);
+}
+
+
+void itoa(int32_t num, char* str) {
+    int i = 0;
+    bool isNegative = false;
+
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return;
+    }
+
+    int64_t tempNum = num;
+
+    if (tempNum < 0) {
+        isNegative = true;
+        tempNum = -tempNum;
+    }
+
+    while (tempNum != 0) {
+        int rem = tempNum % 10;
+        str[i++] = rem + '0';
+        tempNum = tempNum / 10;
+    }
+
+    if (isNegative) {
+        str[i++] = '-';
+    }
+
+    str[i] = '\0';
+    int start = 0;
+    int end = i - 1;
+    while (start < end) {
+        char temp = str[start];
+        str[start] = str[end];
+        str[end] = temp;
+        start++;
+        end--;
+    }
 }

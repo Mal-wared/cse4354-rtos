@@ -83,7 +83,7 @@ void putcUart0(char c)
 }
 
 // Blocking function that writes a string when the UART buffer is not full
-void putsUart0(char* str)
+void putsUart0(const char* str)
 {
     uint8_t i = 0;
     while (str[i] != '\0')
@@ -198,12 +198,16 @@ bool isCommand(USER_DATA* data, const char strCommand[], uint8_t minArguments)
     // Check if command is equal
     while (strCommand[count] != '\0' && fieldStr[count] != '\0')
     {
-        if (strCommand[count] != fieldStr[count])
+        if (tolower(strCommand[count]) != tolower(fieldStr[count]))
         {
             return false;
         }
         count++;
     }
+
+    if (strCommand[count] != '\0' || fieldStr[count] != '\0') {
+       return false;
+   }
     return true;
 }
 
