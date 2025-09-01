@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 int atoi(const char *num) {
     int result = 0;
     int sign = 1;
@@ -23,4 +25,12 @@ int atoi(const char *num) {
     }
 
     return sign * result;
+}
+
+int strcmp(const char *s1, const char *s2) {
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return (uint8_t)*s1 - (uint8_t)*s2;
 }

@@ -58,28 +58,51 @@ void initHw()
     GPIO_PORTF_DEN_R |= GREEN_LED_MASK | RED_LED_MASK;  // enable LEDs
 }
 
-//-----------------------------------------------------------------------------
-// Main
-//-----------------------------------------------------------------------------
+void yield(void);
 
-int main(void)
+void shell(void)
 {
     // Initialize variables
     USER_DATA data;
+    uint8_t i = 0;
 
-	// Initialize hardware
-	initHw();
-	initUart0();
+    // Initialize hardware
+    initHw();
+    initUart0();
 
-	while (true)
+    while (true)
     {
+        while (!kbhitUart0())
+        {
+            yield();
+        }
+        uint8_t count = 0;
+        char c = getcUart0();
+        if ((c == 8 || c == 127) && count > 0) {
+            count--;
+        }
+
+        if (c == 13) {
+            // add a null terminator to end of the string
+            data->buffer[count] = '\0';
+        }
+
+        if (c >= 32 && c != 127) {
+            data->buffer[count] = c;
+            count++;
+            if (count == MAX_CHARS) {
+                data->buffer[count] = '\0';
+            }
+        }
+
         data.fieldCount = 0;
         bool valid = false;
-        getsUart0(&data);
-        putsUart0(data.buffer);
         putcUart0('\n');
+        getsUart0(&data);
+        // putsUart0(data.buffer); // DEBUGGING: prints command to screen
         parseFields(&data);
-        uint8_t i = 0;
+
+        /* DEBUGGING
         for (i = 0; i < data.fieldCount; i++)
         {
             putcUart0(data.fieldType[i]);
@@ -87,6 +110,7 @@ int main(void)
             putsUart0(&(data.buffer[data.fieldPosition[i]]));
             putcUart0('\n');
         }
+        */
 
         if (isCommand(&data, "set", 2))
         {
@@ -115,10 +139,15 @@ int main(void)
         if (isCommand(&data, "alert", 1))
         {
             char* alertStr = getFieldString(&data, 1);
-            valid = true;
-            putsUart0("ALERT ");
-            putsUart0(alertStr);
-            putcUart0('\n');
+            if (strcmp(alertStr, "ON") == 0 || strcmp(alertStr, "OFF") == 0)
+            {
+                valid = true;
+                putsUart0("ALERT ");
+                putsUart0(alertStr);
+                putcUart0('\n');
+            }
+
+
         }
 
         if (!valid) {
@@ -137,6 +166,14 @@ int main(void)
         data.fieldCount = 0;
 
     }
+}
+//-----------------------------------------------------------------------------
+// Main
+//-----------------------------------------------------------------------------
+
+int main(void)
+{
+    shell();
 
     return 0;
 }
