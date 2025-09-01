@@ -36,7 +36,7 @@ char tolower(char c) {
 }
 
 int strcmp(const char *s1, const char *s2) {
-    while (tolower(*s1) == tolower(*s2))) {
+    while (tolower(*s1) == tolower(*s2)) {
         if(*s1 == '\0') {
             return 0;
         }
