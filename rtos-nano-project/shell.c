@@ -26,9 +26,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <util.h>
 #include "clock.h"
 #include "uart0.h"
+#include "util.h"
+#include "stackHelper.h"
 #include "tm4c123gh6pm.h"
 
 // Bitband aliases
@@ -38,6 +39,12 @@
 // PortF masks
 #define GREEN_LED_MASK 8
 #define RED_LED_MASK 2
+
+//-----------------------------------------------------------------------------
+// Global Variables
+//-----------------------------------------------------------------------------
+
+uint32_t pid = -1000;
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -57,6 +64,60 @@ void initHw()
     GPIO_PORTF_DIR_R |= GREEN_LED_MASK | RED_LED_MASK;  // bits 1 and 3 are outputs
     GPIO_PORTF_DR2R_R |= GREEN_LED_MASK | RED_LED_MASK; // set drive strength to 2mA (not needed since default configuration -- for clarity)
     GPIO_PORTF_DEN_R |= GREEN_LED_MASK | RED_LED_MASK;  // enable LEDs
+}
+
+void MpuISR()
+{
+    putsUart0("MPU fault in process N\n");
+}
+
+void triggerMpuFault() {
+    // Attempt to write to flash memory (read-only)
+    volatile uint32_t *ptr = (volatile uint32_t *)0x00001000;
+    *ptr = 0xDEADBEEF;
+}
+
+void BusISR()
+{
+    putsUart0("Bus fault in process ");
+    char pidStr[10];
+    itoa(pid, pidStr);
+    putsUart0(pidStr);
+    putsUart0("\n");
+}
+
+void UsageISR()
+{
+    putsUart0("Usage fault in process ");
+    char pidStr[10];
+    itoa(pid, pidStr);
+    putsUart0(pidStr);
+    putsUart0("\n");
+}
+
+void FaultISR()
+{
+    putsUart0("Hard fault in process ");
+    char pidStr[10];
+    itoa(pid, pidStr);
+    putsUart0(pidStr);
+    putsUart0("\n");
+
+    uint32_t currentMsp = getMsp();
+    char mspStr[10];
+    itoa(currentMsp, mspStr);
+
+    uint32_t currentPsp = getPsp();
+    char pspStr[10];
+    itoa(currentPsp, pspStr);
+
+    putsUart0("MSP: ");
+    putsUart0(mspStr);
+    putsUart0("\n");
+
+    putsUart0("PSP: ");
+    putsUart0(pspStr);
+    putsUart0("\n");
 }
 
 void yield(void)
@@ -312,6 +373,13 @@ void shell(void)
                 valid = true;
                 run(proc_name);
             }
+
+            if (isCommand(&data, "test", 0))
+            {
+                triggerMpuFault();
+            }
+
+
 
             if (!valid) {
                 putsUart0("Invalid command\n");
