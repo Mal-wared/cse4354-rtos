@@ -1,5 +1,5 @@
-#ifndef _ATOI_H
-#define _ATOI_H
+#ifndef _UTIL_H
+#define _UTIL_H
 
 #include <stdint.h>
 

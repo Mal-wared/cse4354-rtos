@@ -26,9 +26,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <util.h>
 #include "clock.h"
 #include "uart0.h"
-#include "atoi.h"
 #include "tm4c123gh6pm.h"
 
 // Bitband aliases

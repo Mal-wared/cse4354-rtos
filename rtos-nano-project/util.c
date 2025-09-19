@@ -43,7 +43,8 @@ int strcmp(const char *s1, const char *s2) {
         s1++;
         s2++;
     }
-    return (uint8_t)tolower(*s1) - (uint8_t)tolower(*s2);
+    uint8_t result = (uint8_t)tolower(*s1) - (uint8_t)tolower(*s2);
+    return result;
 }
 
 
