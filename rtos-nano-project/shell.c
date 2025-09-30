@@ -64,8 +64,20 @@ void initHw()
     GPIO_PORTF_DIR_R |= GREEN_LED_MASK | RED_LED_MASK;  // bits 1 and 3 are outputs
     GPIO_PORTF_DR2R_R |= GREEN_LED_MASK | RED_LED_MASK; // set drive strength to 2mA (not needed since default configuration -- for clarity)
     GPIO_PORTF_DEN_R |= GREEN_LED_MASK | RED_LED_MASK;  // enable LEDs
+
+    // Enable Bus, Usage, and Memory Faults
+    NVIC_SYS_HND_CTRL_R |= NVIC_SYS_HND_CTRL_BUS | NVIC_SYS_HND_CTRL_USAGE | NVIC_SYS_HND_CTRL_MEM;
+
+    // Disable Usage Fault
+    // Register SYSHNDCTRL
+    // NVIC_SYS_HND_CTRL_R &= ~NVIC_SYS_HND_CTRL_USAGE;
+
+    // Enable divide-by-zero trap
+    NVIC_CFG_CTRL_R |= NVIC_CFG_CTRL_DIV0;
+
 }
 
+// page 148
 void MpuISR()
 {
     putsUart0("MPU fault in process N\n");
@@ -77,6 +89,7 @@ void triggerMpuFault() {
     *ptr = 0xDEADBEEF;
 }
 
+// page 149
 void BusISR()
 {
     putsUart0("Bus fault in process ");
@@ -86,6 +99,11 @@ void BusISR()
     putsUart0("\n");
 }
 
+void triggerBusFault() {
+
+}
+
+// page 150
 void UsageISR()
 {
     putsUart0("Usage fault in process ");
@@ -95,7 +113,14 @@ void UsageISR()
     putsUart0("\n");
 }
 
-void FaultISR()
+void triggerUsageFault() {
+    volatile int x = 10;
+    volatile int y = 0;
+    volatile int z = x / y; // This will now trigger a usage fault.
+}
+
+// page 112
+void HardFaultISR()
 {
     putsUart0("Hard fault in process ");
     char pidStr[10];
@@ -118,6 +143,13 @@ void FaultISR()
     putsUart0("PSP: ");
     putsUart0(pspStr);
     putsUart0("\n");
+}
+
+void triggerHardFault() {
+    NVIC_SYS_HND_CTRL_R &= ~NVIC_SYS_HND_CTRL_USAGE;
+    volatile int x = 10;
+    volatile int y = 0;
+    volatile int z = x / y; // This will now trigger a usage fault.
 }
 
 void yield(void)
@@ -374,8 +406,27 @@ void shell(void)
                 run(proc_name);
             }
 
-            if (isCommand(&data, "test", 0))
+            if (isCommand(&data, "hard", 0))
             {
+                valid = true;
+                triggerHardFault();
+            }
+
+            if (isCommand(&data, "usage", 0))
+            {
+                valid = true;
+                triggerUsageFault();
+            }
+
+            if (isCommand(&data, "bus", 0))
+            {
+                valid = true;
+                triggerBusFault();
+            }
+
+            if (isCommand(&data, "mem", 0))
+            {
+                valid = true;
                 triggerMpuFault();
             }
 

@@ -3,10 +3,13 @@
 #ifndef STACK_HELPER_H_
 #define STACK_HELPER_H_
 
-// Returns the current value of the Process Stack Pointer (PSP)
+//-----------------------------------------------------------------------------
+// Function Prototypes
+//-----------------------------------------------------------------------------
 extern uint32_t getPsp(void);
+extern void setPsp(uint32_t psp);
 
-// Returns the current value of the Main Stack Pointer (MSP)
 extern uint32_t getMsp(void);
+extern void setMsp(uint32_t psp);
 
 #endif

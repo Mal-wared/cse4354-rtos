@@ -59,6 +59,7 @@ extern uint32_t __STACK_TOP;
 void MpuISR();
 void BusISR();
 void UsageISR();
+void HardFaultISR();
 
 //*****************************************************************************
 //
@@ -74,7 +75,7 @@ void (* const g_pfnVectors[])(void) =
                                             // The initial stack pointer
     ResetISR,                               // The reset handler
     NmiSR,                                  // The NMI handler
-    FaultISR,                               // The hard fault handler
+    HardFaultISR,                               // The hard fault handler
     MpuISR,                      // The MPU fault handler
     BusISR,                      // The bus fault handler
     UsageISR,                    // The usage fault handler
