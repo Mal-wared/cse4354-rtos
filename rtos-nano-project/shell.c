@@ -44,7 +44,7 @@
 // Global Variables
 //-----------------------------------------------------------------------------
 
-uint32_t pid = -1000;
+uint32_t pid = 10000;
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -68,10 +68,6 @@ void initHw()
     // Enable Bus, Usage, and Memory Faults
     NVIC_SYS_HND_CTRL_R |= NVIC_SYS_HND_CTRL_BUS | NVIC_SYS_HND_CTRL_USAGE | NVIC_SYS_HND_CTRL_MEM;
 
-    // Disable Usage Fault
-    // Register SYSHNDCTRL
-    // NVIC_SYS_HND_CTRL_R &= ~NVIC_SYS_HND_CTRL_USAGE;
-
     // Enable divide-by-zero trap
     NVIC_CFG_CTRL_R |= NVIC_CFG_CTRL_DIV0;
 
@@ -80,13 +76,27 @@ void initHw()
 // page 148
 void MpuISR()
 {
-    putsUart0("MPU fault in process N\n");
+    putsUart0("MPU fault in process ");
+    char pidStr[10];
+    itoa(pid, pidStr);
+    putsUart0(pidStr);
+    putsUart0("\n");
+    while(1);
 }
 
+// page 92 - memory model: table 2-4 memory map
+// page 126 - updating an MPU region
 void triggerMpuFault() {
+    // Configure MPU
+
+    // MPU disabled b/c it cannot be configured while active
+    NVIC_MPU_CTRL_R &= ~(NVIC_MPU_CTRL_ENABLE | NVIC_MPU_CTRL_HFNMIENA);
+    NVIC_MPU_NUMBER_R = NVIC_MPU_NUMBER_M;
+
     // Attempt to write to flash memory (read-only)
     volatile uint32_t *ptr = (volatile uint32_t *)0x00001000;
     *ptr = 0xDEADBEEF;
+
 }
 
 // page 149
@@ -97,10 +107,11 @@ void BusISR()
     itoa(pid, pidStr);
     putsUart0(pidStr);
     putsUart0("\n");
+    while(1);
 }
 
 void triggerBusFault() {
-
+    *(volatile uint32_t *)0x30000000 = 0;
 }
 
 // page 150
@@ -111,6 +122,7 @@ void UsageISR()
     itoa(pid, pidStr);
     putsUart0(pidStr);
     putsUart0("\n");
+    while(1);
 }
 
 void triggerUsageFault() {
@@ -119,7 +131,7 @@ void triggerUsageFault() {
     volatile int z = x / y; // This will now trigger a usage fault.
 }
 
-// page 112
+// page 112 - fault types: table 2-11 faults
 void HardFaultISR()
 {
     putsUart0("Hard fault in process ");
@@ -143,13 +155,31 @@ void HardFaultISR()
     putsUart0("PSP: ");
     putsUart0(pspStr);
     putsUart0("\n");
+
+    // display mfault flags (in hex)
+    // display offending instruction
+    // display process stack dump (xPSR, PC, LR R0-3, R12)
+    while(1);
 }
 
+// Triggers a Hard Fault by causing a divide-by-zero error, which
+// was escalated due to the disabled Usage Fault Handler.
+// ---- The exception caused below is classified as a "Usage Fault".
+// ---- However, due to Usage Faults being disabled, the processor escalates the exception to the next
+// ---- available handler, which is the Hard Fault handler.
 void triggerHardFault() {
     NVIC_SYS_HND_CTRL_R &= ~NVIC_SYS_HND_CTRL_USAGE;
     volatile int x = 10;
     volatile int y = 0;
     volatile int z = x / y; // This will now trigger a usage fault.
+}
+
+void PendSvIsr() {
+
+}
+
+void triggerPendSvFault() {
+
 }
 
 void yield(void)

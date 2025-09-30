@@ -60,6 +60,7 @@ void MpuISR();
 void BusISR();
 void UsageISR();
 void HardFaultISR();
+void PendSvIsr();
 
 //*****************************************************************************
 //
@@ -75,10 +76,10 @@ void (* const g_pfnVectors[])(void) =
                                             // The initial stack pointer
     ResetISR,                               // The reset handler
     NmiSR,                                  // The NMI handler
-    HardFaultISR,                               // The hard fault handler
-    MpuISR,                      // The MPU fault handler
-    BusISR,                      // The bus fault handler
-    UsageISR,                    // The usage fault handler
+    HardFaultISR,                           // The hard fault handler
+    MpuISR,                                 // The MPU fault handler
+    BusISR,                                 // The bus fault handler
+    UsageISR,                               // The usage fault handler
     0,                                      // Reserved
     0,                                      // Reserved
     0,                                      // Reserved
@@ -86,7 +87,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // SVCall handler
     IntDefaultHandler,                      // Debug monitor handler
     0,                                      // Reserved
-    IntDefaultHandler,                      // The PendSV handler
+    PendSvIsr,                      // The PendSV handler
     IntDefaultHandler,                      // The SysTick handler
     IntDefaultHandler,                      // GPIO Port A
     IntDefaultHandler,                      // GPIO Port B
