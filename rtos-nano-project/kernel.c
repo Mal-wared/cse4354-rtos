@@ -34,20 +34,29 @@ void triggerMpuFault() {
 // page 149
 void BusISR()
 {
-    putsUart0("Bus fault in process ");
+    putsUart0("--- FAULT DIAGNOSTICS ---\n");
+    putsUart0("Usage fault in process ");
     printPid();
+    putsUart0("\n");
+
+
     while(1);
 }
 
 void triggerBusFault() {
+    // tries to access a reserved memory region, resulting in
     *(volatile uint32_t *)0x30000000 = 0;
 }
 
 // page 150
 void UsageISR()
 {
+    putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("Usage fault in process ");
     printPid();
+    putsUart0("\n");
+    uint32_t debugFlags =    PRINT_MFAULT_FLAGS;
+    printFaultDebug(debugFlags);
     while(1);
 }
 
@@ -68,10 +77,6 @@ void HardFaultISR()
     uint32_t debugFlags =    PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
                             PRINT_OFFENDING_INSTRUCTION | PRINT_STACK_DUMP;
     printFaultDebug(debugFlags);
-
-    // display mfault flags (in hex)
-    // display offending instruction
-    // display process stack dump (xPSR, PC, LR R0-3, R12)
     while(1);
 }
 
@@ -103,15 +108,16 @@ void printPid() {
 }
 
 void printFaultDebug(uint32_t flags) {
+    uint32_t * currentPsp = getPsp();
+    uint32_t * currentMsp = getMsp();
+
     // Print PSP and MSP addresses
     if (flags & PRINT_STACK_POINTERS) {
-        uint32_t currentMsp = getMsp();
         char mspStr[12];
-        itoh(currentMsp, mspStr);
+        itoh((uint32_t)currentMsp, mspStr);
 
-        uint32_t currentPsp = getPsp();
         char pspStr[12];
-        itoh(currentPsp, pspStr);
+        itoh((uint32_t)currentPsp, pspStr);
 
         putsUart0("--- STACK POINTERS ---\n");
         putsUart0("MSP    (Main Stack Pointer):\t");
@@ -123,24 +129,114 @@ void printFaultDebug(uint32_t flags) {
         putsUart0("\n\n");
     }
 
-    // Print mfault flags (in hex)
-    if (flags & PRINT_MFAULT_FLAGS) {
-        uint32_t currentMsp = getMsp();
-        char mspStr[12];
-        itoh(currentMsp, mspStr);
+    if (flags & PRINT_STACK_DUMP) {
+        char buffer[12];
+        putsUart0("--- PROCESS STACK DUMP ---\n");
 
-        uint32_t currentPsp = getPsp();
-        char pspStr[12];
-        itoh(currentPsp, pspStr);
-
-        putsUart0("--- STACK POINTERS ---\n");
-        putsUart0("MSP    (Main Stack Pointer):\t");
-        putsUart0(mspStr);
+        putsUart0("R0:\t");
+        itoh(currentPsp[0], buffer);
+        putsUart0(buffer);
         putsUart0("\n");
 
-        putsUart0("PSP (Process Stack Pointer):\t");
-        putsUart0(pspStr);
+        putsUart0("R1:\t");
+        itoh(currentPsp[1], buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+
+        putsUart0("R2:\t");
+        itoh(currentPsp[2], buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+
+        putsUart0("R3:\t");
+        itoh(currentPsp[3], buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+
+        putsUart0("R12:\t");
+        itoh(currentPsp[4], buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+
+        putsUart0("LR:\t");
+        itoh(currentPsp[5], buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+
+        putsUart0("PC:\t");
+        itoh(currentPsp[6], buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+
+        putsUart0("xPSR:\t");
+        itoh(currentPsp[7], buffer);
+        putsUart0(buffer);
         putsUart0("\n\n");
+    }
+
+    // Print mfault flags (in hex)
+    if (flags & PRINT_MFAULT_FLAGS) {
+        uint32_t faultStat = NVIC_FAULT_STAT_R;
+        putsUart0("--- FAULT STATUS REGISTERS ---\n");
+        if(faultStat & NVIC_FAULT_STAT_DIV0){ //:25
+            putsUart0("- Divide-by-Zero Usage Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_UNALIGN){ //:24
+            putsUart0("- Unaligned Access Usage Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_NOCP){//:19
+            putsUart0("- No Coprocessor Usage Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_INVPC){//:18
+            putsUart0("- Invalid PC Load Usage Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_INVSTAT){//:17
+            putsUart0("- Invalid State Usage Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_UNDEF){//:16
+            putsUart0("- Undefined Instruction Usage Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_BFARV){//:15
+            putsUart0("- Bus Fault Address Register Valid\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_BLSPERR){//:13
+            putsUart0("- Floating point lazy state preservation (Bus Fault)\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_BSTKE){//:12
+            putsUart0("- Stack Bus Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_BUSTKE){//:11
+            putsUart0("- Unstack Bus Fault\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_IMPRE){//:10
+            putsUart0("- Imprecise Data Bus Error\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_PRECISE){//:9
+            putsUart0("- Precise Data Bus Error\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_IBUS){//:8
+            putsUart0("- Instruction Bus Error\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_MMARV){//:7
+            putsUart0("- Memory Management Fault Address Register Valid\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_MLSPERR){//:5
+            putsUart0("- Memory Management Fault on Floating-Point Lazy State Preservation\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_MSTKE){//:4
+            putsUart0("- Stack Access Violation (Memory Management Fault)\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_MUSTKE){//:3
+            putsUart0("- Unstack Access Violation (Memory Management Fault)\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_DERR){//:1
+            putsUart0("- Data Access Violation\n");
+        }
+        if(faultStat & NVIC_FAULT_STAT_IERR){//:0
+            putsUart0("- Instruction Access Violation\n");
+        }
+        putsUart0("\n");
+
     }
 
     if (flags & PRINT_OFFENDING_INSTRUCTION) {
@@ -150,11 +246,6 @@ void printFaultDebug(uint32_t flags) {
 
     if (flags & PRINT_DATA_ADDRESSES) {
         // print data addresses
-        putsUart0("printing data addresses");
-    }
-
-    if (flags & PRINT_STACK_DUMP) {
-        // print stack dump
-        putsUart0("printing stack dump");
+        putsUart0("printing data addresses\n");
     }
 }
