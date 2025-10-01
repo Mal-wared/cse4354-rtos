@@ -7,11 +7,12 @@
 ;					containing read-only executable instructions)
 ;
 ;-----------------------------------------------------------------------------
+	.global putSomethingIntoR0
     .global getPsp
     .global setPsp
     .global getMsp
     .global setMsp
-
+    .global setAspBit
 
     .sect   ".text"
     .thumb
@@ -20,12 +21,17 @@
 ; Subroutines
 ;-----------------------------------------------------------------------------
 
+putSomethingIntoR0:
+    MOV R3, #1      	; Move the value of the Process Stack Pointer into R0
+    BX LR               ; Return to the caller
+
 getPsp:
     MRS R0, PSP         ; Move the value of the Process Stack Pointer into R0
     BX LR               ; Return to the caller
 
 setPsp:
 	MSR PSP, R0         ; Move the value of the Process Stack Pointer into R0
+	ISB
     BX LR               ; Return to the caller
 
 getMsp:
@@ -33,5 +39,13 @@ getMsp:
     BX LR               ; Return to the caller
 
 setMsp:
-	MSR PSP, R0         ; Move the value of the Process Stack Pointer into R0
+	MSR MSP, R0         ; Move the value of the Process Stack Pointer into R0
+	ISB
     BX LR               ; Return to the caller
+
+setAspBit:
+	MRS R0, CONTROL		; Read CONTROL register into R0
+	ORR R0, R0, #2		; R0 | #2 - using bitwise OR to not overwrite CONTROL bits
+	MSR CONTROL, R0		; Write newly modified R0 into CONTROL
+	ISB
+	BX LR

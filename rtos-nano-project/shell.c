@@ -174,10 +174,6 @@ void shell(void)
     char c;
     bool entered = false;
 
-    // Initialize hardware
-    initHw();
-    initUart0();
-
     putsUart0("\n> ");
 
     while (true)
@@ -383,6 +379,15 @@ void shell(void)
 
 int main(void)
 {
+    // Initialize hardware
+    initHw();
+    initUart0();
+
+    // Set ASP
+    setPsp((void*)0x20008000);
+    setAspBit();
+
+
     shell();
 
     return 0;
