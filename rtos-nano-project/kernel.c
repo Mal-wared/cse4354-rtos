@@ -240,9 +240,23 @@ void printFaultDebug(uint32_t flags) {
 
     }
 
+    // page 75 figure 2-3 cortex-m4f register set
     if (flags & PRINT_OFFENDING_INSTRUCTION) {
         // print offending instruction
         putsUart0("--- OFFENDING INSTRUCTION ---\n");
+        uint32_t faultingPc = psp[6];
+
+        // 2. To find the offending instruction, we look at the address *before*
+        //    the stacked PC. We assume 16-bit Thumb instructions.
+        uint16_t* instructionAddress = (uint16_t*)(faultingPc - 2);
+
+        // 3. Read the 16-bit instruction value directly from that memory address.
+        uint16_t instructionValue = *instructionAddress;
+
+        char hexStr[12]; // Buffer for "0x0000.0000" formatted string
+        itoh((uint32_t)instructionAddress, hexStr)
+        putsUart0(hexStr);
+        putsUart0(": ");
     }
 
     if (flags & PRINT_DATA_ADDRESSES) {
