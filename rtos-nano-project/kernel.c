@@ -178,62 +178,63 @@ void printFaultDebug(uint32_t flags) {
     if (flags & PRINT_MFAULT_FLAGS) {
         uint32_t faultStat = NVIC_FAULT_STAT_R;
         putsUart0("--- FAULT STATUS REGISTERS ---\n");
-        if(faultStat & NVIC_FAULT_STAT_DIV0){ //:25
-            putsUart0("- Divide-by-Zero Usage Fault\n");
+        putsUart0("Indicated causes of fault(s) in FAULTSTAT register:\n");
+        if(faultStat & NVIC_FAULT_STAT_DIV0){
+            putsUart0("- [BIT 25] Divide-by-Zero Usage Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_UNALIGN){ //:24
-            putsUart0("- Unaligned Access Usage Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_UNALIGN){
+            putsUart0("- [BIT 24] Unaligned Access Usage Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_NOCP){//:19
-            putsUart0("- No Coprocessor Usage Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_NOCP){
+            putsUart0("- [BIT 19] No Coprocessor Usage Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_INVPC){//:18
-            putsUart0("- Invalid PC Load Usage Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_INVPC){
+            putsUart0("- [BIT 18] Invalid PC Load Usage Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_INVSTAT){//:17
-            putsUart0("- Invalid State Usage Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_INVSTAT){
+            putsUart0("- [BIT 17] Invalid State Usage Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_UNDEF){//:16
-            putsUart0("- Undefined Instruction Usage Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_UNDEF){
+            putsUart0("- [BIT 16] Undefined Instruction Usage Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_BFARV){//:15
-            putsUart0("- Bus Fault Address Register Valid\n");
+        if(faultStat & NVIC_FAULT_STAT_BFARV){
+            putsUart0("- [BIT 15] Bus Fault Address Register Valid\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_BLSPERR){//:13
-            putsUart0("- Floating point lazy state preservation (Bus Fault)\n");
+        if(faultStat & NVIC_FAULT_STAT_BLSPERR){
+            putsUart0("- [BIT 13] Bus Fault on Floating-Point Lazy State Preservation\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_BSTKE){//:12
-            putsUart0("- Stack Bus Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_BSTKE){
+            putsUart0("- [BIT 12] Stack Bus Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_BUSTKE){//:11
-            putsUart0("- Unstack Bus Fault\n");
+        if(faultStat & NVIC_FAULT_STAT_BUSTKE){
+            putsUart0("- [BIT 11] Unstack Bus Fault\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_IMPRE){//:10
-            putsUart0("- Imprecise Data Bus Error\n");
+        if(faultStat & NVIC_FAULT_STAT_IMPRE){
+            putsUart0("- [BIT 10] Imprecise Data Bus Error\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_PRECISE){//:9
-            putsUart0("- Precise Data Bus Error\n");
+        if(faultStat & NVIC_FAULT_STAT_PRECISE){
+            putsUart0("- [BIT 9] Precise Data Bus Error\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_IBUS){//:8
-            putsUart0("- Instruction Bus Error\n");
+        if(faultStat & NVIC_FAULT_STAT_IBUS){
+            putsUart0("- [BIT 8] Instruction Bus Error\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_MMARV){//:7
-            putsUart0("- Memory Management Fault Address Register Valid\n");
+        if(faultStat & NVIC_FAULT_STAT_MMARV){
+            putsUart0("- [BIT 7] Memory Management Fault Address Register Valid\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_MLSPERR){//:5
-            putsUart0("- Memory Management Fault on Floating-Point Lazy State Preservation\n");
+        if(faultStat & NVIC_FAULT_STAT_MLSPERR){
+            putsUart0("- [BIT 5] Memory Management Fault on Floating-Point Lazy State Preservation\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_MSTKE){//:4
-            putsUart0("- Stack Access Violation (Memory Management Fault)\n");
+        if(faultStat & NVIC_FAULT_STAT_MSTKE){
+            putsUart0("- [BIT 4] Stack Access Violation (Memory Management Fault)\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_MUSTKE){//:3
-            putsUart0("- Unstack Access Violation (Memory Management Fault)\n");
+        if(faultStat & NVIC_FAULT_STAT_MUSTKE){
+            putsUart0("- [BIT 3] Unstack Access Violation (Memory Management Fault)\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_DERR){//:1
-            putsUart0("- Data Access Violation\n");
+        if(faultStat & NVIC_FAULT_STAT_DERR){
+            putsUart0("- [BIT 1] Data Access Violation\n");
         }
-        if(faultStat & NVIC_FAULT_STAT_IERR){//:0
-            putsUart0("- Instruction Access Violation\n");
+        if(faultStat & NVIC_FAULT_STAT_IERR){
+            putsUart0("- [BIT 0] Instruction Access Violation\n");
         }
         putsUart0("\n");
 
@@ -241,11 +242,11 @@ void printFaultDebug(uint32_t flags) {
 
     if (flags & PRINT_OFFENDING_INSTRUCTION) {
         // print offending instruction
-        putsUart0("printing offending instruction");
+        putsUart0("--- OFFENDING INSTRUCTION ---\n");
     }
 
     if (flags & PRINT_DATA_ADDRESSES) {
         // print data addresses
-        putsUart0("printing data addresses\n");
+        putsUart0("--- DATA ADDRESSES ---\n");
     }
 }
