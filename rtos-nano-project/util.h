@@ -2,6 +2,7 @@
 #define _UTIL_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 // printFlags Macros
 #define PRINT_STACK_POINTERS        (1 << 0)
@@ -13,8 +14,11 @@
 
 int atoi(const char *num);
 int strcmp(const char *s1, const char *s2);
+int stricmp(const char *s1, const char *s2);
 char tolower(char c);
+void reverseStr(char str[], int length);
+char* strcpy(char* dest, const char* src);
+char* strncpy(char* dest, const char* src, size_t n);
 void itoa(int32_t num, char str[]);
-void printPid(uint32_t pid);
-void printFlags(uint32_t flags);
+void itoh(uint32_t num, char* str);
 #endif

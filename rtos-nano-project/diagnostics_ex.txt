@@ -1,0 +1,30 @@
+--- FAULT DIAGNOSTICS ---
+MPU fault in process 7
+
+--- STACK POINTERS ---
+MSP (Main Stack Pointer):      0x20000FF0
+PSP (Process Stack Pointer):   0x20001A9C
+
+--- FAULT STATUS REGISTERS (HEX) ---
+CFSR (Usage, Bus, MPU): 0x00008200
+  - MPU Fault Flags (MMFSR): 0x82
+    - DACCVIOL: Data access violation
+    - MMARVALID: MPU Fault Address Register is valid
+
+--- OFFENDING INSTRUCTION & DATA ---
+Faulting PC (from stack):  0x00001234
+Instruction @ 0x00001234: 0x6008 (STR R0, [R1])
+Illegal Data Access Address: 0x20007FFC
+
+--- PROCESS STACK DUMP ---
+Stack frame located at PSP: 0x20001A9C
+  R0:  0xDEADBEEF
+  R1:  0x20007FFC
+  R2:  0x0000000A
+  R3:  0x00000000
+  R12: 0x400253FC
+  LR:  0x000008F1
+  PC:  0x00001236
+  xPSR:0x61000000
+
+--- END OF REPORT ---

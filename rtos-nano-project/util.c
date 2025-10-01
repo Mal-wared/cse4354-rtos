@@ -1,5 +1,7 @@
+#include "util.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 int atoi(const char *num) {
     int result = 0;
@@ -36,6 +38,17 @@ char tolower(char c) {
 }
 
 int strcmp(const char *s1, const char *s2) {
+    while (*s1 == *s2) {
+        if(*s1 == '\0') {
+            return 0;
+        }
+        s1++;
+        s2++;
+    }
+    return *s1 - *s2;
+}
+
+int stricmp(const char *s1, const char *s2) {
     while (tolower(*s1) == tolower(*s2)) {
         if(*s1 == '\0') {
             return 0;
@@ -43,10 +56,53 @@ int strcmp(const char *s1, const char *s2) {
         s1++;
         s2++;
     }
-    uint8_t result = (uint8_t)tolower(*s1) - (uint8_t)tolower(*s2);
-    return result;
+    return tolower(*s1) - tolower(*s2);
 }
 
+void reverseStr(char str[], int length) {
+    int start = 0;
+    int end = length - 1;
+    while (start < end) {
+        char temp = str[start];
+        str[start] = str[end];
+        str[end] = temp;
+        start++;
+        end--;
+    }
+}
+
+char* strcpy(char* dest, const char* src) {
+    // Save the original destination address
+    char* original_dest = dest;
+
+    while (*src != '\0') {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+
+    *dest = '\0';
+
+    // Return the original starting address of the destination
+    return original_dest;
+}
+
+char* strncpy(char* dest, const char* src, size_t n) {
+    size_t i;
+
+    // Copy characters from src as long as we are within n
+    //    and haven't hit the end of the source string.
+    for (i = 0; i < n && src[i] != '\0'; i++) {
+        dest[i] = src[i];
+    }
+
+    // If src was shorter than n, pad the rest of dest with '\0'.
+    for ( ; i < n; i++) {
+        dest[i] = '\0';
+    }
+
+    return dest;
+}
 
 void itoa(int32_t num, char* str) {
     int i = 0;
@@ -87,31 +143,41 @@ void itoa(int32_t num, char* str) {
     }
 }
 
-void printPid(uint32_t pid) {
-    char pidStr[10];
-    itoa(pid, pidStr);
-    putsUart0(pidStr);
-    putsUart0("\n");
+void itoh(uint32_t num, char* str) {
+    char temp_str[9]; // Temp buffer for 8 hex digits + null terminator
+    int i = 0;
+
+    // Hex-character look-up table
+    char hex_chars[] = "0123456789ABCDEF";
+
+    // Zero-case
+    if (num == 0) {
+        strcpy(str, "0x0000.0000");
+        return;
+    }
+
+    // Create the initial hex string (in reverse)
+    while (num != 0) {
+        temp_str[i++] = hex_chars[num % 16];
+        num /= 16;
+    }
+
+    // Pad with leading zeros (in reverse) until we have 8 digits
+    while (i < 8) {
+        temp_str[i++] = '0';
+    }
+    temp_str[i] = '\0';
+
+    // Reverse the padded string to get the correct order
+    reverseStr(temp_str, i);
+
+    // Build the final formatted string
+    str[0] = '0';
+    str[1] = 'x';
+    strncpy(&str[2], &temp_str[0], 4); // Copy the first 4 hex digits
+    str[6] = '.';
+    strncpy(&str[7], &temp_str[4], 4); // Copy the last 4 hex digits
+    str[11] = '\0'; // Null-terminate the final string
 }
 
-void printFlags(uint32_t flags) {
-    if (flags & PRINT_STACK_POINTERS) {
-        // print PSP and MSP
-    }
 
-    if (flags & PRINT_MFAULT_FLAGS) {
-        // print mfault flags (in hex)
-    }
-
-    if (flags & PRINT_OFFENDING_INSTRUCTION) {
-        // print offending instruction
-    }
-
-    if (flags & PRINT_DATA_ADDRESSES) {
-        // print data addresses
-    }
-
-    if (flags & PRINT_STACK_DUMP) {
-        // print stack dump
-    }
-}
