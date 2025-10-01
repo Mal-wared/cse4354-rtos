@@ -11,23 +11,55 @@ uint32_t pid = 10000;
 // page 148
 void MpuISR()
 {
+    putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("MPU fault in process ");
     printPid();
+    putsUart0("\n");
+
+    uint32_t debugFlags =    PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
+                            PRINT_OFFENDING_INSTRUCTION | PRINT_STACK_DUMP |
+                            PRINT_DATA_ADDRESSES;
+    printFaultDebug(debugFlags);
     while(1);
 }
 
 // page 92 - memory model: table 2-4 memory map
 // page 126 - updating an MPU region
 void triggerMpuFault() {
-    // Configure MPU
+    // A pointer to a valid SRAM address
+        volatile uint32_t* protected_address = (uint32_t*)0x20004000;
 
-    // MPU disabled b/c it cannot be configured while active
-    NVIC_MPU_CTRL_R &= ~(NVIC_MPU_CTRL_ENABLE | NVIC_MPU_CTRL_HFNMIENA);
-    NVIC_MPU_NUMBER_R = NVIC_MPU_NUMBER_M;
+        // Configure an MPU region
 
-    // Attempt to write to flash memory (read-only)
-    volatile uint32_t *ptr = (volatile uint32_t *)0x00001000;
-    *ptr = 0xDEADBEEF;
+        // Use MPU region 0, disable it first
+        NVIC_MPU_NUMBER_R = 0;
+        NVIC_MPU_ATTR_R = 0;
+
+        // Set the base address of the region (must be aligned to size)
+        NVIC_MPU_BASE_R = 0x20004000;
+
+        // Configure the region attributes:
+        // - Enable region
+        // - 1 KiB size
+        // - Privileged: Read/Write, Unprivileged: Read-Only
+        NVIC_MPU_ATTR_R = NVIC_MPU_ATTR_XN |      // No-execute
+                          NVIC_MPU_ATTR_AP_PRW_UR |// Priv RW, Unpriv RO
+                          (9 << 1) |             // Region size 2^(9+1) = 1024 bytes
+                          NVIC_MPU_ATTR_ENABLE;
+
+        // --- Step 2: Enable the MPU ---
+        NVIC_MPU_CTRL_R = NVIC_MPU_CTRL_ENABLE | NVIC_MPU_CTRL_PRIVDEFEN;
+
+        __asm(" DSB"); // Data Synchronization Barrier
+        __asm(" ISB"); // Instruction Synchronization Barrier
+
+        // --- Step 3: Switch to Unprivileged Mode ---
+        switchToUnprivileged();
+
+        // --- Step 4: Violate the Rule ---
+        // This line will now trigger an MPU fault because unprivileged
+        // code is attempting to WRITE to a READ-ONLY location.
+        *protected_address = 0xDEADBEEF;
 
 }
 
@@ -35,10 +67,9 @@ void triggerMpuFault() {
 void BusISR()
 {
     putsUart0("--- FAULT DIAGNOSTICS ---\n");
-    putsUart0("Usage fault in process ");
+    putsUart0("Bus fault in process ");
     printPid();
     putsUart0("\n");
-
 
     while(1);
 }
@@ -88,6 +119,7 @@ void triggerHardFault() {
 
     // Divide-by-zero trap generates a UsageFault. Since its handler is disabled,
     // it escalates to HardFault handler.
+    putSomethingIntoR0();
     volatile int z = x / y;
 }
 
@@ -244,17 +276,14 @@ void printFaultDebug(uint32_t flags) {
     if (flags & PRINT_OFFENDING_INSTRUCTION) {
         // print offending instruction
         putsUart0("--- OFFENDING INSTRUCTION ---\n");
-        uint32_t faultingPc = psp[6];
-
-        // 2. To find the offending instruction, we look at the address *before*
-        //    the stacked PC. We assume 16-bit Thumb instructions.
+        uint32_t faultingPc = currentPsp[6];
         uint16_t* instructionAddress = (uint16_t*)(faultingPc - 2);
 
         // 3. Read the 16-bit instruction value directly from that memory address.
         uint16_t instructionValue = *instructionAddress;
 
         char hexStr[12]; // Buffer for "0x0000.0000" formatted string
-        itoh((uint32_t)instructionAddress, hexStr)
+        itoh((uint32_t)currentPsp[6], hexStr);
         putsUart0(hexStr);
         putsUart0(": ");
     }
