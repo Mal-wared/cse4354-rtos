@@ -95,5 +95,23 @@ void printPid(uint32_t pid) {
 }
 
 void printFlags(uint32_t flags) {
-    if (flags = )
+    if (flags & PRINT_STACK_POINTERS) {
+        // print PSP and MSP
+    }
+
+    if (flags & PRINT_MFAULT_FLAGS) {
+        // print mfault flags (in hex)
+    }
+
+    if (flags & PRINT_OFFENDING_INSTRUCTION) {
+        // print offending instruction
+    }
+
+    if (flags & PRINT_DATA_ADDRESSES) {
+        // print data addresses
+    }
+
+    if (flags & PRINT_STACK_DUMP) {
+        // print stack dump
+    }
 }
