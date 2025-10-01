@@ -77,10 +77,7 @@ void initHw()
 void MpuISR()
 {
     putsUart0("MPU fault in process ");
-    char pidStr[10];
-    itoa(pid, pidStr);
-    putsUart0(pidStr);
-    putsUart0("\n");
+    printPid(pid);
     while(1);
 }
 
@@ -103,10 +100,7 @@ void triggerMpuFault() {
 void BusISR()
 {
     putsUart0("Bus fault in process ");
-    char pidStr[10];
-    itoa(pid, pidStr);
-    putsUart0(pidStr);
-    putsUart0("\n");
+    printPid(pid);
     while(1);
 }
 
@@ -118,10 +112,7 @@ void triggerBusFault() {
 void UsageISR()
 {
     putsUart0("Usage fault in process ");
-    char pidStr[10];
-    itoa(pid, pidStr);
-    putsUart0(pidStr);
-    putsUart0("\n");
+    printPid(pid);
     while(1);
 }
 
@@ -131,14 +122,11 @@ void triggerUsageFault() {
     volatile int z = x / y; // This will now trigger a usage fault.
 }
 
-// page 112 - fault types: table 2-11 faults
+// Page 112 - Fault Types: Table 2-11 Faults
 void HardFaultISR()
 {
     putsUart0("Hard fault in process ");
-    char pidStr[10];
-    itoa(pid, pidStr);
-    putsUart0(pidStr);
-    putsUart0("\n");
+    printPid(pid);
 
     uint32_t currentMsp = getMsp();
     char mspStr[10];
@@ -162,16 +150,15 @@ void HardFaultISR()
     while(1);
 }
 
-// Triggers a Hard Fault by causing a divide-by-zero error, which
-// was escalated due to the disabled Usage Fault Handler.
-// ---- The exception caused below is classified as a "Usage Fault".
-// ---- However, due to Usage Faults being disabled, the processor escalates the exception to the next
-// ---- available handler, which is the Hard Fault handler.
 void triggerHardFault() {
+    // Disables UsageFault handler to force fault escalation
     NVIC_SYS_HND_CTRL_R &= ~NVIC_SYS_HND_CTRL_USAGE;
     volatile int x = 10;
     volatile int y = 0;
-    volatile int z = x / y; // This will now trigger a usage fault.
+
+    // Divide-by-zero trap generates a UsageFault. Since its handler is disabled,
+    // it escalates to HardFault handler.
+    volatile int z = x / y;
 }
 
 void PendSvIsr() {

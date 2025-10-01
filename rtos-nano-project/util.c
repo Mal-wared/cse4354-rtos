@@ -86,3 +86,14 @@ void itoa(int32_t num, char* str) {
         end--;
     }
 }
+
+void printPid(uint32_t pid) {
+    char pidStr[10];
+    itoa(pid, pidStr);
+    putsUart0(pidStr);
+    putsUart0("\n");
+}
+
+void printFlags(uint32_t flags) {
+    if (flags = )
+}
