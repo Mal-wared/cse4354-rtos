@@ -131,6 +131,10 @@ void triggerPendSvFault() {
 
 }
 
+void * malloc_heap (int size_in_bytes) {
+
+}
+
 void printPid() {
     // String of size 12 for 10 digits (4,294,967,295) + 1 sign + 1 null terminator
     char pidStr[12];
