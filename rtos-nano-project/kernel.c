@@ -205,7 +205,8 @@ void *free_heap(void * p) {
     // Calculate starting index of allocated memory
     int start_allocation_index = ((uint8_t*)ptr - heap) / MPU_REGION_SIZE_B;
 
-    // If the "allocated memory" isn't allocated, then exit function
+    // If the pointer doesn't correspond to the start of an active allocation,
+    //   then exit function
     if (allocated_lengths[start_allocation_index] <= 0) {
         return;
     }
