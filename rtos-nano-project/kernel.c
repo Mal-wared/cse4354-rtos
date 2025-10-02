@@ -1,3 +1,7 @@
+//-----------------------------------------------------------------------------
+// Device includes, defines, and assembler directives
+//-----------------------------------------------------------------------------
+
 #include "kernel.h"
 #include <stdint.h>
 #include "uart0.h"
@@ -6,7 +10,24 @@
 #include "kernel.h"
 #include "tm4c123gh6pm.h"
 
+
+#define MPU_REGION_COUNT 28     // defines maximum number of regions in MPU
+#define MPU_REGION_SIZE_B 1024  // defines size in bytes of an MPU region
+
+//-----------------------------------------------------------------------------
+// Global variables
+//-----------------------------------------------------------------------------
+
 uint32_t pid = 10000;
+// 28 KB / 32 KB (DYNAMIC HEAP ALLOCATION/OS RESERVE SPLIT)
+volatile uint8_t heap[MPU_REGION_COUNT * MPU_REGION_SIZE_B];
+
+// Tracks which 1024-byte (1 MB) chunks are currently being used
+int allocated_lengths[MPU_REGION_COUNT] = {0};
+
+//-----------------------------------------------------------------------------
+// Subroutines
+//-----------------------------------------------------------------------------
 
 // page 148
 void MpuISR()
@@ -131,7 +152,46 @@ void triggerPendSvFault() {
 
 }
 
+// Dynamically allocates SRAM memory, rounding up to the nearest 1024 byte multiple
 void * malloc_heap (int size_in_bytes) {
+    // Handles zero-case
+    if (size_in_bytes == 0) {
+        return NULL;
+    }
+
+    // 1 byte needs 1 chunk, 1024 bytes needs 1 chunk, 1025 bytes needs 2 chunks
+    int chunks_required = ((size_in_bytes - 1) / MPU_REGION_SIZE_B) + 1;
+
+    // implemented "fist-fit" algorithm, finding first available consecutive blocks
+    for (int i = 0; i <= MPU_REGION_COUNT - chunks_required; i++) {
+        bool free_block = true;
+
+        // checks from i to i + j to see if consecutive blocks are available
+        for (int j = 0; j < chunks_required; j++) {
+            if (allocated_lengths[i + j] != 0) {
+                free_block = false;
+                i = i + j;
+                break; // block is not free, break from inner loop
+            }
+        }
+
+        if (free_block) {
+            allocated_lengths[i] = chunks_required;
+            // allocate taken attribute to chunks via is_chunk_allocated array
+            for (int j = 1; j < chunks_required; j++) {
+                allocated_lengths[i + j] = -1;
+            }
+
+            // returns actual memory
+            void* ptr = (void*)(heap + (i * MPU_REGION_SIZE_B));
+            return ptr;
+        }
+    }
+
+    return NULL;
+}
+
+void *free_heap(void * p) {
 
 }
 

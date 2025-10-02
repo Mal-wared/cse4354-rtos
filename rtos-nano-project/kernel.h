@@ -21,7 +21,8 @@ void triggerHardFault();
 void PendSvIsr();
 void triggerPendSvFault();
 
-void * malloc_heap (int size_in_bytes);
+void *malloc_heap (int size_in_bytes);
+void *free_heap(void * p);
 
 void printPid();
 void printFaultDebug(uint32_t flags);
