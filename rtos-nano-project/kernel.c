@@ -192,6 +192,34 @@ void * malloc_heap (int size_in_bytes) {
 }
 
 void *free_heap(void * p) {
+    // Checks if pointer is NULL
+    if (p == NULL) {
+        return;
+    }
+
+    // Checks if memory address is outside of SRAM
+    if ((uint8_t*)p < heap || (uint8_t*)p >= (heap + MPU_REGION_COUNT * MPU_REGION_SIZE_B)) {
+        return;
+    }
+
+    // Calculate starting index of allocated memory
+    int start_allocation_index = ((uint8_t*)ptr - heap) / MPU_REGION_SIZE_B;
+
+    // If the "allocated memory" isn't allocated, then exit function
+    if (allocated_lengths[start_allocation_index] <= 0) {
+        return;
+    }
+
+    // Get the number of chunks that needs to be freed
+    int allocation_length = allocated_lengths[start_allocation_index];
+
+    // Free desginated chunks
+    for (int i = 0; i < allocation_length; i++) {
+        allocated_lengths[start_allocation_index + i] = 0;
+    }
+
+
+    // revoke SRAM access
 
 }
 
