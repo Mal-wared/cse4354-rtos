@@ -386,6 +386,7 @@ int main(void)
     // Set ASP
     setPsp((void*)0x20008000);
     setAspBit();
+    allowFlashAccess();
 
 
     shell();

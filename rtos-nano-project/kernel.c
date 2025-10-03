@@ -14,6 +14,8 @@
 #define MPU_REGION_COUNT 28     // defines maximum number of regions in MPU
 #define MPU_REGION_SIZE_B 1024  // defines size in bytes of an MPU region
 
+#define MPU_REGIONS_FLASH 1
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -47,40 +49,7 @@ void MpuISR()
 // page 92 - memory model: table 2-4 memory map
 // page 126 - updating an MPU region
 void triggerMpuFault() {
-    // A pointer to a valid SRAM address
-        volatile uint32_t* protected_address = (uint32_t*)0x20004000;
 
-        // Configure an MPU region
-
-        // Use MPU region 0, disable it first
-        NVIC_MPU_NUMBER_R = 0;
-        NVIC_MPU_ATTR_R = 0;
-
-        // Set the base address of the region (must be aligned to size)
-        NVIC_MPU_BASE_R = 0x20004000;
-
-        // Configure the region attributes:
-        // - Enable region
-        // - 1 KiB size
-        // - Privileged: Read/Write, Unprivileged: Read-Only
-        NVIC_MPU_ATTR_R = NVIC_MPU_ATTR_XN |      // No-execute
-                          NVIC_MPU_ATTR_AP_PRW_UR |// Priv RW, Unpriv RO
-                          (9 << 1) |             // Region size 2^(9+1) = 1024 bytes
-                          NVIC_MPU_ATTR_ENABLE;
-
-        // --- Step 2: Enable the MPU ---
-        NVIC_MPU_CTRL_R = NVIC_MPU_CTRL_ENABLE | NVIC_MPU_CTRL_PRIVDEFEN;
-
-        __asm(" DSB"); // Data Synchronization Barrier
-        __asm(" ISB"); // Instruction Synchronization Barrier
-
-        // --- Step 3: Switch to Unprivileged Mode ---
-        switchToUnprivileged();
-
-        // --- Step 4: Violate the Rule ---
-        // This line will now trigger an MPU fault because unprivileged
-        // code is attempting to WRITE to a READ-ONLY location.
-        *protected_address = 0xDEADBEEF;
 
 }
 
@@ -163,11 +132,13 @@ void * malloc_heap (int size_in_bytes) {
     int chunks_required = ((size_in_bytes - 1) / MPU_REGION_SIZE_B) + 1;
 
     // implemented "fist-fit" algorithm, finding first available consecutive blocks
-    for (int i = 0; i <= MPU_REGION_COUNT - chunks_required; i++) {
+    int i = 0;
+    int j = 0;
+    for (i = 0; i <= MPU_REGION_COUNT - chunks_required; i++) {
         bool free_block = true;
 
         // checks from i to i + j to see if consecutive blocks are available
-        for (int j = 0; j < chunks_required; j++) {
+        for (j = 0; j < chunks_required; j++) {
             if (allocated_lengths[i + j] != 0) {
                 free_block = false;
                 i = i + j;
@@ -178,7 +149,7 @@ void * malloc_heap (int size_in_bytes) {
         if (free_block) {
             allocated_lengths[i] = chunks_required;
             // allocate taken attribute to chunks via is_chunk_allocated array
-            for (int j = 1; j < chunks_required; j++) {
+            for (j = 1; j < chunks_required; j++) {
                 allocated_lengths[i + j] = -1;
             }
 
@@ -203,7 +174,7 @@ void *free_heap(void * p) {
     }
 
     // Calculate starting index of allocated memory
-    int start_allocation_index = ((uint8_t*)ptr - heap) / MPU_REGION_SIZE_B;
+    int start_allocation_index = ((uint8_t*)p - heap) / MPU_REGION_SIZE_B;
 
     // If the pointer doesn't correspond to the start of an active allocation,
     //   then exit function
@@ -215,13 +186,104 @@ void *free_heap(void * p) {
     int allocation_length = allocated_lengths[start_allocation_index];
 
     // Free desginated chunks
-    for (int i = 0; i < allocation_length; i++) {
+    int i = 0;
+    for (i = 0; i < allocation_length; i++) {
         allocated_lengths[start_allocation_index + i] = 0;
     }
 
 
     // revoke SRAM access
+    return;
+}
 
+// background rule, -1?
+// privilege, bit 2 of MPUCTL, turning on background rule
+// unles protecting flash, xn not set
+//  device memory map table 2.4/92
+void allowFlashAccess() {
+    __asm(" ISB");
+    const unsigned int region = MPU_REGIONS_FLASH;
+
+    // NVIC_MPU_NUMBER_S == number of bits to shift
+    // NVIC_MPU_NUMBER_M == bitmask to not affect other register bits
+
+    // MPUBASE - page 190
+    // MPUNUMBER - page 189
+    // MPUATTR - page 192
+
+    // --- Select MPU Region to configure (FLASH - Region 1 of 8 (1/8)) ---
+
+    // By disbaling the valid bit in the MPUBASE register,
+    // we have to write directly to the MPUNUMBER register to set the region
+    // OPTIONALLY: could set the valid bit and write directly to the
+    //              REGION field in the MPUBASE register, but this is
+    //              a nonstandard operation
+    NVIC_MPU_BASE_R &= ~NVIC_MPU_BASE_VALID;
+
+    // Clear region selection
+    NVIC_MPU_NUMBER_R &= ~NVIC_MPU_NUMBER_M;
+
+    // Select FLASH (1/8) region
+    NVIC_MPU_NUMBER_R |= (region << NVIC_MPU_NUMBER_S) & NVIC_MPU_NUMBER_M;         // select region /189
+
+    // Disables the region specified in MPUNUMBER (FLASH region)
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_ENABLE;
+
+    // Clears the ADDR field in MPUBASE
+    NVIC_MPU_BASE_R &= ~NVIC_MPU_BASE_ADDR_M;
+
+    // Sets the base address for specified memory block (FLASH)
+    NVIC_MPU_BASE_R |= 0 & NVIC_MPU_BASE_ADDR_M;
+
+    // Clears the SIZE field of the MPUATTR register
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_SIZE_M;
+
+    // Size of FLASH: 0x0000.0000 - 0x0003.FFFF = 262144 Bytes
+    // MPUATTR SIZE field calculation:
+    // (Region size in bytes) = 2^(SIZE+1)
+    // log(Region size in bytes) = (SIZE+1)log(2)
+    // log(262144) = (SIZE+1)log(2)
+    // log(262144)/log(2) = (SIZE+1)
+    // SIZE+1 = 18
+    // SIZE = 17
+
+    // Set the SIZE field of the MPUATTR register
+    // (17 << 1) to shift out of the ENABLE field and into the SIZE field
+    NVIC_MPU_ATTR_R |= (17 << 1) & NVIC_MPU_ATTR_SIZE_M;
+
+    // Setting:
+    //  Table 3-3 (Page 129): TEX, S, C, and B Bit Field Encoding
+    //  Table 3-4 (Page 129): Cache Policy for Memory Attribute Encoding
+    //  Table 3-5 (Page 129): AP Bit Field Encoding
+    // As defined in:
+    //  Table 3-6 (Page 130): Memory Region Attributes for Tiva™ C Series Microcontrollers
+    // For: Flash Memory RWX
+    // TEX: 0b000
+    // S:   0
+    // C:   0
+    // B:   0
+    // AP:  0b011 (Full Access)
+    // XN:  0
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_TEX_M;                // Clear TEX field
+    NVIC_MPU_ATTR_R |= (0b000 << 19) & NVIC_MPU_ATTR_TEX_M; // Set TEX field
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_SHAREABLE;            // Set S field
+    NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_CACHEABLE;             // Set C field
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_BUFFRABLE;            // Set B field
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_XN;                   // Set XN field
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_AP_M;     // Clear AP field
+    NVIC_MPU_ATTR_R |= (0b011 & 0b111) << 24;   // Set AP field (0b111 mask)
+
+    // Enable SRD bit - FLASH region is dominant, don't let regions
+    //                  overlap or overwrite FLASH
+    NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_SRD_M;
+
+    // Disable subregions
+    // NVIC_MPU_ATTR_R |= (0b1111'1111 & 0xFF) << 8;
+
+    // Enable region defined in MPUNUMBER
+    NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_ENABLE;    // enable region /193
+
+    __asm(" ISB");
 }
 
 void printPid() {
@@ -369,14 +431,12 @@ void printFaultDebug(uint32_t flags) {
     if (flags & PRINT_OFFENDING_INSTRUCTION) {
         // print offending instruction
         putsUart0("--- OFFENDING INSTRUCTION ---\n");
-        uint32_t faultingPc = currentPsp[6];
-        uint16_t* instructionAddress = (uint16_t*)(faultingPc - 2);
+        uint32_t* faultingPc = (uint32_t*)currentPsp[6];
 
         // 3. Read the 16-bit instruction value directly from that memory address.
-        uint16_t instructionValue = *instructionAddress;
 
         char hexStr[12]; // Buffer for "0x0000.0000" formatted string
-        itoh((uint32_t)currentPsp[6], hexStr);
+        itoh((uint32_t)*faultingPc, hexStr);
         putsUart0(hexStr);
         putsUart0(": ");
     }

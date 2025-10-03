@@ -13,6 +13,7 @@
     .global getMsp
     .global setMsp
     .global setAspBit
+    .global setTMPL
 
     .sect   ".text"
     .thumb
@@ -48,4 +49,10 @@ setAspBit:
 	ORR R0, R0, #2		; R0 | #2 - using bitwise OR to not overwrite CONTROL bits
 	MSR CONTROL, R0		; Write newly modified R0 into CONTROL
 	ISB
+	BX LR
+
+setTMPL:
+	MRS R0, CONTROL
+	ORR	R0, R0, #1
+	MSR CONTROL, R0
 	BX LR

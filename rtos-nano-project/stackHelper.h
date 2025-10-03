@@ -15,5 +15,6 @@ extern uint32_t * getMsp(void);
 extern void setMsp(void * msp);
 
 extern void setAspBit(void);
+extern void setTMPL(void);
 
 #endif
