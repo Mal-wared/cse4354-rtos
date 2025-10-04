@@ -15,6 +15,7 @@
 #define MPU_REGION_SIZE_B 1024  // defines size in bytes of an MPU region
 
 #define MPU_REGIONS_FLASH 1
+#define MPU_REGIONS_PERIPHERALS 2
 
 //-----------------------------------------------------------------------------
 // Global variables
@@ -200,7 +201,7 @@ void *free_heap(void * p) {
 // privilege, bit 2 of MPUCTL, turning on background rule
 // unles protecting flash, xn not set
 //  device memory map table 2.4/92
-void allowFlashAccess() {
+void allowFlashAccess(void) {
     __asm(" ISB");
     const unsigned int region = MPU_REGIONS_FLASH;
 
@@ -260,7 +261,7 @@ void allowFlashAccess() {
     // For: Flash Memory RWX
     // TEX: 0b000
     // S:   0
-    // C:   0
+    // C:   1
     // B:   0
     // AP:  0b011 (Full Access)
     // XN:  0
@@ -284,6 +285,102 @@ void allowFlashAccess() {
     NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_ENABLE;    // enable region /193
 
     __asm(" ISB");
+}
+
+void allowPeripheralAccess(void)
+{
+    __asm(" ISB");
+        const unsigned int region = MPU_REGIONS_PERIPHERALS;
+
+        // NVIC_MPU_NUMBER_S == number of bits to shift
+        // NVIC_MPU_NUMBER_M == bitmask to not affect other register bits
+
+        // MPUBASE - page 190
+        // MPUNUMBER - page 189
+        // MPUATTR - page 192
+
+        // --- Select MPU Region to configure (PERIPHERALS - Region 2 of 8 (2/8)) ---
+
+        // By disabling the valid bit in the MPUBASE register,
+        // we have to write directly to the MPUNUMBER register to set the region
+        // OPTIONALLY: could set the valid bit and write directly to the
+        //              REGION field in the MPUBASE register, but this is
+        //              a nonstandard operation
+        NVIC_MPU_BASE_R &= ~NVIC_MPU_BASE_VALID;
+
+        // Clear region selection
+        NVIC_MPU_NUMBER_R &= ~NVIC_MPU_NUMBER_M;
+
+        // Select PERIPHERAL (2/8) region
+        NVIC_MPU_NUMBER_R |= (region << NVIC_MPU_NUMBER_S) & NVIC_MPU_NUMBER_M;         // select region /189
+
+        // Disables the region specified in MPUNUMBER (PERIPHERAL region)
+        NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_ENABLE;
+
+        // Clears the ADDR field in MPUBASE
+        NVIC_MPU_BASE_R &= ~NVIC_MPU_BASE_ADDR_M;
+
+        // Sets the base address for specified memory block (PERIPHERAL)
+        NVIC_MPU_BASE_R |= 0x40000000 & NVIC_MPU_BASE_ADDR_M;
+
+        // Clears the SIZE field of the MPUATTR register
+        NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_SIZE_M;
+
+
+        // Initial Thoughts on Size:
+        // - Thought the idea was to create a memory region over
+        //      the entirety of peripherals to the private peripheral
+        //      (0x4000.0000 - 0xFFFF.FFFF = 402653184 Bytes)
+        //      bus, but we only need the memory region from the
+        //      peripheral bit-band region to the peripheral bit-band alias
+
+        // Size of PERIPHERAL: 0x4000.0000 - 0x43FF.FFFF = 67108864 Bytes
+        // MPUATTR SIZE field calculation:
+        // (Region size in bytes) = 2^(SIZE+1)
+        // log(Region size in bytes) = (SIZE+1)log(2)
+        // log(67108864) = (SIZE+1)log(2)
+        // log(67108864)/log(2) = (SIZE+1)
+        // SIZE+1 = 26
+        // SIZE = 25
+
+        // Set the SIZE field of the MPUATTR register
+        // (17 << 1) to shift out of the ENABLE field and into the SIZE field
+        NVIC_MPU_ATTR_R |= (25 << 1) & NVIC_MPU_ATTR_SIZE_M;
+
+        // Setting:
+        //  Table 3-3 (Page 129): TEX, S, C, and B Bit Field Encoding
+        //  Table 3-4 (Page 129): Cache Policy for Memory Attribute Encoding
+        //  Table 3-5 (Page 129): AP Bit Field Encoding
+        // As defined in:
+        //  Table 3-6 (Page 130): Memory Region Attributes for Tiva™ C Series Microcontrollers
+        // For: Peripheral Memory RW Unprivileged and Privileged
+        // TEX: 0b000
+        // S:   1
+        // C:   0
+        // B:   1
+        // AP:  0b011 (Full Access)
+        // XN:  1 (not executable code)
+        NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_TEX_M;                // Clear TEX field
+        NVIC_MPU_ATTR_R |= (0b000 << 19) & NVIC_MPU_ATTR_TEX_M; // Set TEX field
+        NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_SHAREABLE;             // Set S field
+        NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_CACHEABLE;            // Set C field
+        NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_BUFFRABLE;             // Set B field
+        NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_XN;                   // Set XN field
+        NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_AP_M;     // Clear AP field
+        NVIC_MPU_ATTR_R |= (0b011 & 0b111) << 24;   // Set AP field (0b111 mask)
+
+        // Enable SRD bit - PERIPHERAL region is dominant, don't let regions
+        //                  overlap or overwrite PERIPHERAL
+        // 0 for all 8 bits on the SRD field means it enables all subregions
+        NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_SRD_M;
+
+        // Disable subregions
+        // NVIC_MPU_ATTR_R |= (0b1111'1111 & 0xFF) << 8;
+
+        // Enable region defined in MPUNUMBER
+        NVIC_MPU_ATTR_R |= NVIC_MPU_ATTR_ENABLE;    // enable region /193
+
+        __asm(" ISB");
 }
 
 void printPid() {
