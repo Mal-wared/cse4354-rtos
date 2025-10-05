@@ -25,6 +25,10 @@ void *malloc_heap (int size_in_bytes);
 void *free_heap(void * p);
 void allowFlashAccess(void);
 void allowPeripheralAccess(void);
+void setupSramAccess(void);
+uint64_t createNoSramAccessMask(void);
+void applySramAccessMask(uint64_t srdBitMask);
+void addSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd, uint32_t size_in_bytes);
 
 void printPid();
 void printFaultDebug(uint32_t flags);

@@ -387,6 +387,7 @@ int main(void)
     setPsp((void*)0x20008000);
     setAspBit();
     allowFlashAccess();
+    allowPeripheralAccess();
 
 
     shell();
