@@ -64,8 +64,7 @@ void BusISR()
     printPid();
     putsUart0("\n");
 
-    while (1)
-        ;
+    while (1);
 }
 
 void triggerBusFault()
@@ -105,8 +104,7 @@ void HardFaultISR()
     uint32_t debugFlags = PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
     PRINT_OFFENDING_INSTRUCTION | PRINT_STACK_DUMP;
     printFaultDebug(debugFlags);
-    while (1)
-        ;
+    while (1);
 }
 
 void triggerHardFault()
@@ -548,8 +546,8 @@ void addSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd, uint32_t size_
 
     unsigned int subregionStartIndex = ((uint32_t) baseAdd - 0x20000000) / 1024;
     unsigned int additionalSubregions = (size_in_bytes - 1) / 1024;
-
-    for (int i = 0; i <= additionalSubregions; i++)
+    int i;
+    for (i = 0; i <= additionalSubregions; i++)
     {
         // add access by disabling the rule
         // 1ULL = unsigned long long (64 bit) int with value of 1

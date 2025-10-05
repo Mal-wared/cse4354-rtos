@@ -28,6 +28,7 @@ putSomethingIntoR0:
 
 getPsp:
     MRS R0, PSP         ; Move the value of the Process Stack Pointer into R0
+    ISB
     BX LR               ; Return to the caller
 
 setPsp:
@@ -37,6 +38,7 @@ setPsp:
 
 getMsp:
     MRS R0, MSP         ; Move the value of the Main Stack Pointer into R0
+    ISB
     BX LR               ; Return to the caller
 
 setMsp:
@@ -44,6 +46,7 @@ setMsp:
 	ISB
     BX LR               ; Return to the caller
 
+; page 89
 setAspBit:
 	MRS R0, CONTROL		; Read CONTROL register into R0
 	ORR R0, R0, #2		; R0 | #2 - using bitwise OR to not overwrite CONTROL bits

@@ -383,12 +383,18 @@ int main(void)
     initHw();
     initUart0();
 
-    // Set ASP
+
     setPsp((void*)0x20008000);
     setAspBit();
+
     allowFlashAccess();
     allowPeripheralAccess();
+    //setupSramAccess();
 
+
+    //uint64_t mask = createNoSramAccessMask();
+    //addSramAccessWindow(&mask, (uint32_t *)0x20000000, 32768);
+    //applySramAccessMask(mask);
 
     shell();
 
