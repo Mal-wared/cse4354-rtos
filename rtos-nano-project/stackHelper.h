@@ -7,7 +7,7 @@
 // Function Prototypes
 //-----------------------------------------------------------------------------
 
-extern void putSomethingIntoR0(void);
+extern void putSomethingIntoR3(void);
 extern uint32_t * getPsp(void);
 extern void setPsp(void * psp);
 

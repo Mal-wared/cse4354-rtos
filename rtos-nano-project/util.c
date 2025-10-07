@@ -48,6 +48,7 @@ int strcmp(const char *s1, const char *s2) {
     return *s1 - *s2;
 }
 
+// case insenstive
 int stricmp(const char *s1, const char *s2) {
     while (tolower(*s1) == tolower(*s2)) {
         if(*s1 == '\0') {
@@ -178,6 +179,34 @@ void itoh(uint32_t num, char* str) {
     str[6] = '.';
     strncpy(&str[7], &temp_str[4], 4); // Copy the last 4 hex digits
     str[11] = '\0'; // Null-terminate the final string
+}
+
+void itoh_be(uint32_t num, char* str)
+{
+    const char hex_chars[] = "0123456789ABCDEF";
+    int i;
+    char *p = &str[2];
+
+    str[0] = '0';
+    str[1] = 'x';
+    str[6] = '.';
+    str[11] = '\0';
+
+    // This loop ensures correct big-endian order by starting with
+    // the most significant byte (i=3) and counting down.
+    for (i = 3; i >= 0; i--)
+    {
+        uint8_t byte = (num >> (i * 8)) & 0xFF;
+
+        *p++ = hex_chars[byte >> 4];
+        *p++ = hex_chars[byte & 0x0F];
+
+        // Place the period after the second byte (i=2) is processed
+        if (i == 2)
+        {
+            p++;
+        }
+    }
 }
 
 

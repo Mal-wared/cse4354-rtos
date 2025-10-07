@@ -21,4 +21,5 @@ char* strcpy(char* dest, const char* src);
 char* strncpy(char* dest, const char* src, size_t n);
 void itoa(int32_t num, char str[]);
 void itoh(uint32_t num, char* str);
+void itoh_be(uint32_t num, char* str);
 #endif

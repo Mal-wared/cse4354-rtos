@@ -7,7 +7,7 @@
 ;					containing read-only executable instructions)
 ;
 ;-----------------------------------------------------------------------------
-	.global putSomethingIntoR0
+	.global putSomethingIntoR3
     .global getPsp
     .global setPsp
     .global getMsp
@@ -22,29 +22,29 @@
 ; Subroutines
 ;-----------------------------------------------------------------------------
 
-putSomethingIntoR0:
-    MOV R3, #1      	; Move the value of the Process Stack Pointer into R0
-    BX LR               ; Return to the caller
+putSomethingIntoR3:
+    MOV R3, #103      	; Test value: should put 0x67 into R3
+    BX LR
 
 getPsp:
     MRS R0, PSP         ; Move the value of the Process Stack Pointer into R0
     ISB
-    BX LR               ; Return to the caller
+    BX LR
 
 setPsp:
 	MSR PSP, R0         ; Move the value of the Process Stack Pointer into R0
 	ISB
-    BX LR               ; Return to the caller
+    BX LR
 
 getMsp:
     MRS R0, MSP         ; Move the value of the Main Stack Pointer into R0
     ISB
-    BX LR               ; Return to the caller
+    BX LR
 
 setMsp:
-	MSR MSP, R0         ; Move the value of the Process Stack Pointer into R0
+	MSR MSP, R0         ; Move the value of the Main Stack Pointer into R0
 	ISB
-    BX LR               ; Return to the caller
+    BX LR
 
 ; page 89
 setAspBit:
