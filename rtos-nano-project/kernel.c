@@ -23,6 +23,7 @@
 //-----------------------------------------------------------------------------
 
 uint32_t pid = 10000;
+uint64_t mask;
 // 28 KB / 32 KB (DYNAMIC HEAP ALLOCATION/OS RESERVE SPLIT)
 volatile uint8_t heap[MPU_REGION_COUNT * MPU_REGION_SIZE_B];
 
@@ -122,12 +123,20 @@ void triggerHardFault()
 
 void PendSvIsr()
 {
+    putsUart0("--- FAULT DIAGNOSTICS ---\n");
+    putsUart0("Pendsv in process ");
+    printPid();
+    putsUart0("\n");
 
+    uint32_t debugFlags = PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
+    PRINT_OFFENDING_INSTRUCTION | PRINT_STACK_DUMP;
+    printFaultDebug(debugFlags);
+    while (1);
 }
 
 void triggerPendSvFault()
 {
-
+    NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
 }
 
 // Dynamically allocates SRAM memory, rounding up to the nearest 1024 byte multiple
@@ -142,7 +151,7 @@ void* malloc_heap(int size_in_bytes)
     // 1 byte needs 1 chunk, 1024 bytes needs 1 chunk, 1025 bytes needs 2 chunks
     int chunks_required = ((size_in_bytes - 1) / MPU_REGION_SIZE_B) + 1;
 
-    // implemented "fist-fit" algorithm, finding first available consecutive blocks
+    // implemented "fi4st-fit" algorithm, finding first available consecutive blocks
     int i = 0;
     int j = 0;
     for (i = 0; i <= MPU_REGION_COUNT - chunks_required; i++)
@@ -171,6 +180,14 @@ void* malloc_heap(int size_in_bytes)
 
             // returns actual memory
             void *ptr = (void*) (heap + (i * MPU_REGION_SIZE_B));
+            uint32_t allocated_size = chunks_required * MPU_REGION_SIZE_B;
+
+
+            // Update the bitmask to grant access to the new memory window
+            addSramAccessWindow(&mask, (uint32_t*)ptr, allocated_size);
+
+            // Apply the newly modified bitmask to the MPU hardware
+            applySramAccessMask(mask);
             return ptr;
         }
     }
@@ -205,6 +222,9 @@ void* free_heap(void *p)
 
     // Get the number of chunks that needs to be freed
     int allocation_length = allocated_lengths[start_allocation_index];
+    uint32_t size_to_free = allocation_length * MPU_REGION_SIZE_B;
+    revokeSramAccessWindow(&mask, (uint32_t*)p, size_to_free);
+    applySramAccessMask(mask);
 
     // Free desginated chunks
     int i = 0;
@@ -469,7 +489,7 @@ void setupSramAccess(void)
         // S:   0
         // C:   1
         // B:   0
-        // AP:  0b001 (RW Privileged & No Access Unprivileged)
+        // AP:  0b011 (RW Privileged & Unprivileged)
         // XN:  0 (executable code)
         NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_TEX_M;              // Clear TEX field
         NVIC_MPU_ATTR_R |= (0b000 << 19) & NVIC_MPU_ATTR_TEX_M; // Set TEX field
@@ -478,7 +498,7 @@ void setupSramAccess(void)
         NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_BUFFRABLE;            // Set B field
         NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_XN;                   // Set XN field
         NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_AP_M;     // Clear AP field
-        NVIC_MPU_ATTR_R |= (0b001 & 0b111) << 24;   // Set AP field (0b111 mask)
+        NVIC_MPU_ATTR_R |= (0b011 & 0b111) << 24;   // Set AP field (0b111 mask)
 
         // 0 for all 8 bits on the SRD field means it enables all subregions
         //NVIC_MPU_ATTR_R &= ~NVIC_MPU_ATTR_SRD_M;
@@ -553,6 +573,140 @@ void addSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd, uint32_t size_
         // 1ULL = unsigned long long (64 bit) int with value of 1
         *srdBitMask &= ~(1ULL << (subregionStartIndex + i));
     }
+}
+
+void revokeSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd, uint32_t size_in_bytes)
+{
+    if (size_in_bytes == 0 || srdBitMask == NULL || ((uint32_t) baseAdd < 0x20000000))
+    {
+        return;
+    }
+
+    if (((uint32_t) baseAdd + size_in_bytes) > 0x20008000)
+    {
+        size_in_bytes = 0x20008000 - (uint32_t) baseAdd;
+    }
+
+    unsigned int subregionStartIndex = ((uint32_t) baseAdd - 0x20000000) / 1024;
+    unsigned int additionalSubregions = (size_in_bytes - 1) / 1024;
+    int i;
+    for (i = 0; i <= additionalSubregions; i++)
+    {
+        // Revoke access by enabling the rule (setting the bit to 1)
+        *srdBitMask |= (1ULL << (subregionStartIndex + i));
+    }
+}
+
+void setupMPU()
+{
+    setupSramAccess();
+    mask = createNoSramAccessMask();
+    addSramAccessWindow(&mask, (uint32_t *)0x20000000, 32768);
+    applySramAccessMask(mask);
+}
+
+// Add these functions to shell.c
+
+void comprehensiveMPUTest()
+{
+    // --- PART 1: PRIVILEGED SETUP AND ACCESS ---
+    putsUart0("--- Comprehensive MPU Test ---\n");
+    putsUart0("PRIVILEGED: Allocating 1024 bytes with malloc_heap...\n");
+
+    // Allocate memory. This also opens an MPU access window for this 1KB block.
+    volatile uint32_t *p = malloc_heap(1024);
+    if (p == NULL)
+    {
+        putsUart0("FAILURE: malloc_heap returned NULL.\n");
+        return;
+    }
+
+    putsUart0("PRIVILEGED: Write/read test to allocated SRAM...\n");
+    *p = 0x12345678; // Write to the memory
+    if (*p == 0x12345678)
+    {
+        putsUart0("SUCCESS: Privileged SRAM access verified. \n\n");
+    }
+    else
+    {
+        putsUart0("FAILURE: Privileged SRAM access failed. \n\n");
+    }
+
+    // --- PART 2: UNPRIVILEGED ACCESS (SHOULD SUCCEED) ---
+    putsUart0("SWITCHING to Unprivileged Mode...\n");
+    setTMPL();
+
+    putsUart0("UNPRIVILEGED: Verifying peripheral and flash access...\n");
+    // This function call proves flash access (running code) and peripheral access (writing to UART).
+    putsUart0("SUCCESS: Unprivileged peripheral/flash access verified. \n");
+
+    putsUart0("UNPRIVILEGED: Write/read test to the same allocated SRAM...\n");
+    *p = 0xABCDEF01; // Write to the memory again
+    if (*p == 0xABCDEF01)
+    {
+        putsUart0("SUCCESS: Unprivileged SRAM access verified. \n\n");
+    }
+    else
+    {
+        putsUart0("FAILURE: Unprivileged SRAM access failed. \n\n");
+    }
+
+    // --- PART 3: UNPRIVILEGED ACCESS (SHOULD FAULT) ---
+    putsUart0("UNPRIVILEGED: Verifying protection of SRAM outside the allocated range.\n");
+    putsUart0("This next step is EXPECTED to cause an MPU fault.\n");
+
+    // Calculate a pointer to the next, unallocated (and thus protected) 1KB block
+    volatile uint32_t *bad_p = p + (1024 / sizeof(uint32_t));
+    *bad_p = 0xBADF00D; // This line should trigger the MpuISR
+
+    // If the code reaches this point, the MPU is not configured correctly.
+    putsUart0("FAILURE: MPU did not protect memory outside the allocated range!\n");
+}
+
+void testMpuAfterFree()
+{
+    // --- PART 1: PRIVILEGED SETUP AND FREE ---
+    putsUart0("--- MPU Post-Free Test ---\n");
+    putsUart0("PRIVILEGED: Allocating and immediately freeing 1024 bytes...\n");
+
+    volatile uint32_t *p = malloc_heap(1024);
+    if (p == NULL)
+    {
+        putsUart0("FAILURE: malloc_heap returned NULL.\n");
+        return;
+    }
+
+    // Free the memory. This should revoke MPU access to the 1KB block.
+    free_heap((void*)p);
+    putsUart0("PRIVILEGED: Memory freed and MPU access revoked.\n\n");
+
+
+    // --- PART 2: UNPRIVILEGED ACCESS (SHOULD FAULT) ---
+    putsUart0("SWITCHING to Unprivileged Mode...\n");
+    setTMPL();
+
+    putsUart0("UNPRIVILEGED: Attempting to access the freed memory...\n");
+    putsUart0("This next step is EXPECTED to cause an MPU fault.\n");
+
+    *p = 0xBADF00D; // This line should trigger the MpuISR
+
+    // If the code reaches this point, the MPU is not configured correctly.
+    putsUart0("FAILURE: MPU did not protect memory after it was freed! \n");
+}
+
+void testSRAM()
+{
+    uint32_t *pointers[12];
+    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    int i;
+    for (i = 0; i < 10; i++) {
+        pointers[i] = malloc_heap(malloc_regions[i]);
+    }
+    //free_heap(pointers[2]);
+    applySramAccessMask(mask);
+    setTMPL();
+    *pointers[2] = 10;
+
 }
 
 void printPid()

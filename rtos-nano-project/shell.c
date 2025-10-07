@@ -32,10 +32,19 @@
 #include "util.h"
 #include "stackHelper.h"
 #include "tm4c123gh6pm.h"
+#include "gpio.h"
 
 // Bitband aliases
 #define RED_LED      (*((volatile uint32_t *)(0x42000000 + (0x400253FC-0x40000000)*32 + 1*4)))
 #define GREEN_LED    (*((volatile uint32_t *)(0x42000000 + (0x400253FC-0x40000000)*32 + 3*4)))
+
+#define BUT0 PORTA,5
+#define BUT1 PORTA,6
+#define BUT2 PORTA,7
+
+#define BUT3 PORTE,3
+#define BUT4 PORTE,2
+#define BUT5 PORTE,1
 
 // PortF masks
 #define GREEN_LED_MASK 8
@@ -44,8 +53,6 @@
 //-----------------------------------------------------------------------------
 // Global Variables
 //-----------------------------------------------------------------------------
-
-
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -59,18 +66,62 @@ void initHw()
 
     // Enable clocks
     SYSCTL_RCGCGPIO_R = SYSCTL_RCGCGPIO_R5;
+    enablePort(PORTA);
+    enablePort(PORTE);
     _delay_cycles(3);
 
     // Configure LED pins
-    GPIO_PORTF_DIR_R |= GREEN_LED_MASK | RED_LED_MASK;  // bits 1 and 3 are outputs
+    GPIO_PORTF_DIR_R |= GREEN_LED_MASK | RED_LED_MASK; // bits 1 and 3 are outputs
     GPIO_PORTF_DR2R_R |= GREEN_LED_MASK | RED_LED_MASK; // set drive strength to 2mA (not needed since default configuration -- for clarity)
     GPIO_PORTF_DEN_R |= GREEN_LED_MASK | RED_LED_MASK;  // enable LEDs
 
+    selectPinDigitalInput(BUT0);
+    selectPinDigitalInput(BUT1);
+    selectPinDigitalInput(BUT2);
+    selectPinDigitalInput(BUT3);
+    selectPinDigitalInput(BUT4);
+    selectPinDigitalInput(BUT5);
+
+    enablePinPulldown(BUT0);
+    enablePinPulldown(BUT1);
+    enablePinPulldown(BUT2);
+    enablePinPulldown(BUT3);
+    enablePinPulldown(BUT4);
+    enablePinPulldown(BUT5);
+
+    /*
+     selectPinInterruptFallingEdge(BUT0);
+     selectPinInterruptFallingEdge(BUT0);
+     selectPinInterruptFallingEdge(BUT0);
+     selectPinInterruptFallingEdge(BUT0);
+     selectPinInterruptFallingEdge(BUT0);
+     selectPinInterruptFallingEdge(BUT0);
+
+     clearPinInterrupt(BUT0);
+     clearPinInterrupt(BUT0);
+     clearPinInterrupt(BUT0);
+     clearPinInterrupt(BUT0);
+     clearPinInterrupt(BUT0);
+     clearPinInterrupt(BUT0);
+     enableNvicInterrupt(INT_GPIOA);                  // turn-on interrupt 16 (GPIOA)
+     enableNvicInterrupt(INT_GPIOE);
+     */
+
+    // disable pin int
+    // select digital input GOT
+    // enable pulldown GOT
+    // select interrupt edge GOT
+    // clear int GOT
+    // turn on nvic GOT
+    // enable pin int
     // Enable Bus, Usage, and Memory Faults
-    NVIC_SYS_HND_CTRL_R |= NVIC_SYS_HND_CTRL_BUS | NVIC_SYS_HND_CTRL_USAGE | NVIC_SYS_HND_CTRL_MEM;
+    NVIC_SYS_HND_CTRL_R |= NVIC_SYS_HND_CTRL_BUS | NVIC_SYS_HND_CTRL_USAGE
+            | NVIC_SYS_HND_CTRL_MEM;
 
     // Enable divide-by-zero trap
     NVIC_CFG_CTRL_R |= NVIC_CFG_CTRL_DIV0;
+
+    NVIC_MPU_CTRL_R |= NVIC_MPU_CTRL_ENABLE | NVIC_MPU_CTRL_PRIVDEFEN;
 
 }
 
@@ -186,20 +237,24 @@ void shell(void)
         if (!entered)
         {
             c = getcUart0();
-            if ((c == 8 || c == 127) && count > 0) {
+            if ((c == 8 || c == 127) && count > 0)
+            {
                 count--;
             }
 
-            if (c == 13) {
+            if (c == 13)
+            {
                 // add a null terminator to end of the string
                 data.buffer[count] = '\0';
                 entered = true;
             }
 
-            if (c >= 32 && c != 127) {
+            if (c >= 32 && c != 127)
+            {
                 data.buffer[count] = c;
                 count++;
-                if (count == MAX_CHARS) {
+                if (count == MAX_CHARS)
+                {
                     data.buffer[count] = '\0';
                     entered = true;
                 }
@@ -215,14 +270,14 @@ void shell(void)
             parseFields(&data);
 
             /* DEBUGGING
-            for (i = 0; i < data.fieldCount; i++)
-            {
-                putcUart0(data.fieldType[i]);
-                putcUart0('\t');
-                putsUart0(&(data.buffer[data.fieldPosition[i]]));
-                putcUart0('\n');
-            }
-            */
+             for (i = 0; i < data.fieldCount; i++)
+             {
+             putcUart0(data.fieldType[i]);
+             putcUart0('\t');
+             putsUart0(&(data.buffer[data.fieldPosition[i]]));
+             putcUart0('\n');
+             }
+             */
 
             if (isCommand(&data, "reboot", 0))
             {
@@ -251,7 +306,7 @@ void shell(void)
 
             if (isCommand(&data, "pkill", 1))
             {
-                char* proc_name = getFieldString(&data, 1);
+                char *proc_name = getFieldString(&data, 1);
 
                 valid = true;
                 pkill(proc_name);
@@ -260,7 +315,7 @@ void shell(void)
             if (isCommand(&data, "pi", 1))
             {
                 bool on;
-                char* piStr = getFieldString(&data, 1);
+                char *piStr = getFieldString(&data, 1);
                 if (strcmp(piStr, "ON") == 0)
                 {
                     on = true;
@@ -278,7 +333,7 @@ void shell(void)
             if (isCommand(&data, "preempt", 1))
             {
                 bool on;
-                char* preemptStr = getFieldString(&data, 1);
+                char *preemptStr = getFieldString(&data, 1);
                 if (strcmp(preemptStr, "ON") == 0)
                 {
                     on = true;
@@ -296,7 +351,7 @@ void shell(void)
             if (isCommand(&data, "sched", 1))
             {
                 bool on;
-                char* schedStr = getFieldString(&data, 1);
+                char *schedStr = getFieldString(&data, 1);
                 if (strcmp(schedStr, "PRIO") == 0)
                 {
                     on = true;
@@ -313,7 +368,7 @@ void shell(void)
 
             if (isCommand(&data, "pidof", 1))
             {
-                char* proc_name = getFieldString(&data, 1);
+                char *proc_name = getFieldString(&data, 1);
                 valid = true;
                 pidof(proc_name);
             }
@@ -321,7 +376,7 @@ void shell(void)
             if (isCommand(&data, "run", 1))
             {
 
-                char* proc_name = getFieldString(&data, 1);
+                char *proc_name = getFieldString(&data, 1);
                 valid = true;
                 run(proc_name);
             }
@@ -350,13 +405,31 @@ void shell(void)
                 triggerMpuFault();
             }
 
+            if (isCommand(&data, "mputest", 0))
+            {
+                valid = true;
+                comprehensiveMPUTest();
+            }
 
+            if (isCommand(&data, "freetest", 0))
+            {
+                valid = true;
+                testMpuAfterFree();
+            }
 
-            if (!valid) {
+            if (isCommand(&data, "testsram", 0))
+            {
+                valid = true;
+                testSRAM();
+            }
+
+            if (!valid)
+            {
                 putsUart0("Invalid command\n");
             }
 
-            for (i = 0; i < MAX_CHARS + 1; i++) {
+            for (i = 0; i < MAX_CHARS + 1; i++)
+            {
                 data.buffer[i] = '\0';
             }
 
@@ -373,6 +446,37 @@ void shell(void)
         }
     }
 }
+
+void keyPresses()
+{
+    while (1)
+    {
+        if (getPinValue(BUT0))
+        {
+            triggerHardFault();
+        }
+        if (getPinValue(BUT1))
+        {
+            triggerBusFault();
+        }
+        if (getPinValue(BUT2))
+        {
+            triggerUsageFault();
+        }
+        if (getPinValue(BUT3))
+        {
+            triggerMpuFault();
+        }
+        if (getPinValue(BUT4))
+        {
+            triggerPendSvFault();
+        }
+        if (getPinValue(BUT5))
+        {
+
+        }
+    }
+}
 //-----------------------------------------------------------------------------
 // Main
 //-----------------------------------------------------------------------------
@@ -383,19 +487,15 @@ int main(void)
     initHw();
     initUart0();
 
-
-    setPsp((void*)0x20008000);
+    setPsp((void*) 0x20008000);
+    //setTMPL();
     setAspBit();
-
     allowFlashAccess();
     allowPeripheralAccess();
-    //setupSramAccess();
+    setupMPU();
+    //setTMPL();
 
-
-    //uint64_t mask = createNoSramAccessMask();
-    //addSramAccessWindow(&mask, (uint32_t *)0x20000000, 32768);
-    //applySramAccessMask(mask);
-
+    keyPresses();
     shell();
 
     return 0;
