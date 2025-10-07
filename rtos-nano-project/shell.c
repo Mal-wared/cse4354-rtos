@@ -399,28 +399,38 @@ void shell(void)
                 triggerBusFault();
             }
 
-            if (isCommand(&data, "mem", 0))
+            if (isCommand(&data, "mpu", 0))
             {
                 valid = true;
                 triggerMpuFault();
             }
 
-            if (isCommand(&data, "mputest", 0))
+            if (isCommand(&data, "pendsv", 0))
             {
                 valid = true;
-                comprehensiveMPUTest();
+                triggerPendSvFault();
             }
 
-            if (isCommand(&data, "freetest", 0))
-            {
-                valid = true;
-                testMpuAfterFree();
-            }
 
-            if (isCommand(&data, "testsram", 0))
+            if (isCommand(&data, "demo", 1))
             {
-                valid = true;
-                testSRAM();
+                char *param = getFieldString(&data, 1);
+                if (stricmp(param, "priv") == 0)
+                {
+                    valid = true;
+                    testSRAMpriv();
+                }
+                if (stricmp(param, "unpriv") == 0)
+                {
+                    valid = true;
+                    testSRAMunpriv();
+                }
+                if (stricmp(param, "free") == 0)
+                {
+                    valid = true;
+                    testSRAMunprivFree();
+                }
+
             }
 
             if (!valid)
@@ -488,14 +498,14 @@ int main(void)
     initUart0();
 
     setPsp((void*) 0x20008000);
-    //setTMPL();
     setAspBit();
     allowFlashAccess();
     allowPeripheralAccess();
     setupMPU();
-    //setTMPL();
 
-    keyPresses();
+    // For when I solder that board
+    //keyPresses();
+
     shell();
 
     return 0;
