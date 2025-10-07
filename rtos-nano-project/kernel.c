@@ -133,7 +133,7 @@ void triggerHardFault()
 
 void PendSvIsr()
 {
-    putsUart0("--- FAULT DIAGNOSTICS ---\n");
+    putsUart0("--- PENDSV HANDLER ---\n");
     putsUart0("Pendsv in process ");
     printPid(0);
 
@@ -642,6 +642,7 @@ void testSRAMpriv()
 
 }
 
+// can't free heap in unprivileged mode
 void testSRAMunpriv()
 {
     uint32_t *pointers[12];
@@ -653,10 +654,6 @@ void testSRAMunpriv()
     applySramAccessMask(mask);
     setTMPL();
     *pointers[2] = 10;
-
-    for (i = 0; i < 10; i++) {
-        free_heap(pointers[i]);
-    }
 }
 
 void testSRAMunprivFree()
