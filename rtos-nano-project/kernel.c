@@ -25,6 +25,8 @@
 uint32_t pid = 10000;
 uint64_t mask;
 // 28 KB / 32 KB (DYNAMIC HEAP ALLOCATION/OS RESERVE SPLIT)
+
+#pragma DATA_SECTION(heap, ".heap_section")
 volatile uint8_t heap[MPU_REGION_COUNT * MPU_REGION_SIZE_B];
 
 // Tracks which 1024-byte (1 MB) chunks are currently being used
@@ -620,7 +622,7 @@ void setupMPU()
 {
     setupSramAccess();
     mask = createNoSramAccessMask();
-    addSramAccessWindow(&mask, (uint32_t *)0x20000000, 32768);
+//    addSramAccessWindow(&mask, (uint32_t *)0x20000000, 32768);
     applySramAccessMask(mask);
 }
 
