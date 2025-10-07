@@ -39,22 +39,28 @@ void MpuISR()
 {
     putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("MPU fault in process ");
-    printPid();
+    printPid(1);
     putsUart0("\n");
 
     uint32_t debugFlags = PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
     PRINT_OFFENDING_INSTRUCTION | PRINT_STACK_DUMP |
     PRINT_DATA_ADDRESSES;
     printFaultDebug(debugFlags);
-    while (1)
-        ;
+
+    //NVIC_FAULT_STAT_R = (NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR);
+    triggerPendSvFault();
+
 }
 
 // page 92 - memory model: table 2-4 memory map
 // page 126 - updating an MPU region
 void triggerMpuFault()
 {
-
+    uint32_t *ptr = malloc_heap(512);
+    free_heap(ptr);
+    applySramAccessMask(createNoSramAccessMask());
+    setTMPL();
+    *ptr = 10;
 }
 
 // page 149
@@ -62,8 +68,11 @@ void BusISR()
 {
     putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("Bus fault in process ");
-    printPid();
+    printPid(1);
     putsUart0("\n");
+
+    uint32_t debugFlags = PRINT_MFAULT_FLAGS;
+    printFaultDebug(debugFlags);
 
     while (1);
 }
@@ -79,12 +88,13 @@ void UsageISR()
 {
     putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("Usage fault in process ");
-    printPid();
+    printPid(1);
     putsUart0("\n");
+
     uint32_t debugFlags = PRINT_MFAULT_FLAGS;
     printFaultDebug(debugFlags);
-    while (1)
-        ;
+
+    while (1);
 }
 
 void triggerUsageFault()
@@ -99,7 +109,7 @@ void HardFaultISR()
 {
     putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("Hard fault in process ");
-    printPid();
+    printPid(1);
     putsUart0("\n");
 
     uint32_t debugFlags = PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
@@ -117,7 +127,7 @@ void triggerHardFault()
 
     // Divide-by-zero trap generates a UsageFault. Since its handler is disabled,
     // it escalates to HardFault handler.
-    putSomethingIntoR0();
+    putSomethingIntoR3();
     volatile int z = x / y;
 }
 
@@ -125,13 +135,22 @@ void PendSvIsr()
 {
     putsUart0("--- FAULT DIAGNOSTICS ---\n");
     putsUart0("Pendsv in process ");
-    printPid();
-    putsUart0("\n");
+    printPid(0);
 
-    uint32_t debugFlags = PRINT_STACK_POINTERS | PRINT_MFAULT_FLAGS |
-    PRINT_OFFENDING_INSTRUCTION | PRINT_STACK_DUMP;
+    if(NVIC_FAULT_STAT_R & (NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR))
+    {
+       NVIC_FAULT_STAT_R &= ~(NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR);
+       putsUart0(", called from MPU\n\n");
+    }
+    else
+    {
+       putsUart0("\n\n");
+    }
+
+    uint32_t debugFlags = PRINT_MFAULT_FLAGS;
     printFaultDebug(debugFlags);
-    while (1);
+
+    while(1);
 }
 
 void triggerPendSvFault()
@@ -605,96 +624,7 @@ void setupMPU()
     applySramAccessMask(mask);
 }
 
-// Add these functions to shell.c
-
-void comprehensiveMPUTest()
-{
-    // --- PART 1: PRIVILEGED SETUP AND ACCESS ---
-    putsUart0("--- Comprehensive MPU Test ---\n");
-    putsUart0("PRIVILEGED: Allocating 1024 bytes with malloc_heap...\n");
-
-    // Allocate memory. This also opens an MPU access window for this 1KB block.
-    volatile uint32_t *p = malloc_heap(1024);
-    if (p == NULL)
-    {
-        putsUart0("FAILURE: malloc_heap returned NULL.\n");
-        return;
-    }
-
-    putsUart0("PRIVILEGED: Write/read test to allocated SRAM...\n");
-    *p = 0x12345678; // Write to the memory
-    if (*p == 0x12345678)
-    {
-        putsUart0("SUCCESS: Privileged SRAM access verified. \n\n");
-    }
-    else
-    {
-        putsUart0("FAILURE: Privileged SRAM access failed. \n\n");
-    }
-
-    // --- PART 2: UNPRIVILEGED ACCESS (SHOULD SUCCEED) ---
-    putsUart0("SWITCHING to Unprivileged Mode...\n");
-    setTMPL();
-
-    putsUart0("UNPRIVILEGED: Verifying peripheral and flash access...\n");
-    // This function call proves flash access (running code) and peripheral access (writing to UART).
-    putsUart0("SUCCESS: Unprivileged peripheral/flash access verified. \n");
-
-    putsUart0("UNPRIVILEGED: Write/read test to the same allocated SRAM...\n");
-    *p = 0xABCDEF01; // Write to the memory again
-    if (*p == 0xABCDEF01)
-    {
-        putsUart0("SUCCESS: Unprivileged SRAM access verified. \n\n");
-    }
-    else
-    {
-        putsUart0("FAILURE: Unprivileged SRAM access failed. \n\n");
-    }
-
-    // --- PART 3: UNPRIVILEGED ACCESS (SHOULD FAULT) ---
-    putsUart0("UNPRIVILEGED: Verifying protection of SRAM outside the allocated range.\n");
-    putsUart0("This next step is EXPECTED to cause an MPU fault.\n");
-
-    // Calculate a pointer to the next, unallocated (and thus protected) 1KB block
-    volatile uint32_t *bad_p = p + (1024 / sizeof(uint32_t));
-    *bad_p = 0xBADF00D; // This line should trigger the MpuISR
-
-    // If the code reaches this point, the MPU is not configured correctly.
-    putsUart0("FAILURE: MPU did not protect memory outside the allocated range!\n");
-}
-
-void testMpuAfterFree()
-{
-    // --- PART 1: PRIVILEGED SETUP AND FREE ---
-    putsUart0("--- MPU Post-Free Test ---\n");
-    putsUart0("PRIVILEGED: Allocating and immediately freeing 1024 bytes...\n");
-
-    volatile uint32_t *p = malloc_heap(1024);
-    if (p == NULL)
-    {
-        putsUart0("FAILURE: malloc_heap returned NULL.\n");
-        return;
-    }
-
-    // Free the memory. This should revoke MPU access to the 1KB block.
-    free_heap((void*)p);
-    putsUart0("PRIVILEGED: Memory freed and MPU access revoked.\n\n");
-
-
-    // --- PART 2: UNPRIVILEGED ACCESS (SHOULD FAULT) ---
-    putsUart0("SWITCHING to Unprivileged Mode...\n");
-    setTMPL();
-
-    putsUart0("UNPRIVILEGED: Attempting to access the freed memory...\n");
-    putsUart0("This next step is EXPECTED to cause an MPU fault.\n");
-
-    *p = 0xBADF00D; // This line should trigger the MpuISR
-
-    // If the code reaches this point, the MPU is not configured correctly.
-    putsUart0("FAILURE: MPU did not protect memory after it was freed! \n");
-}
-
-void testSRAM()
+void testSRAMpriv()
 {
     uint32_t *pointers[12];
     uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
@@ -702,20 +632,60 @@ void testSRAM()
     for (i = 0; i < 10; i++) {
         pointers[i] = malloc_heap(malloc_regions[i]);
     }
-    //free_heap(pointers[2]);
+    applySramAccessMask(mask);
+    *pointers[2] = 10;
+
+    for (i = 0; i < 10; i++) {
+        free_heap(pointers[i]);
+    }
+
+
+}
+
+void testSRAMunpriv()
+{
+    uint32_t *pointers[12];
+    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    int i;
+    for (i = 0; i < 10; i++) {
+        pointers[i] = malloc_heap(malloc_regions[i]);
+    }
+    applySramAccessMask(mask);
+    setTMPL();
+    *pointers[2] = 10;
+
+    for (i = 0; i < 10; i++) {
+        free_heap(pointers[i]);
+    }
+}
+
+void testSRAMunprivFree()
+{
+    uint32_t *pointers[12];
+    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    int i;
+    for (i = 0; i < 10; i++) {
+        pointers[i] = malloc_heap(malloc_regions[i]);
+    }
+    free_heap(pointers[2]);
     applySramAccessMask(mask);
     setTMPL();
     *pointers[2] = 10;
 
 }
 
-void printPid()
+void printPid(int newlines)
 {
     // String of size 12 for 10 digits (4,294,967,295) + 1 sign + 1 null terminator
     char pidStr[12];
     itoa(pid, pidStr);
     putsUart0(pidStr);
-    putsUart0("\n");
+    int i;
+    for (i = 0; i < newlines; i++)
+    {
+        putsUart0("\n");
+    }
+
 }
 
 void printFaultDebug(uint32_t flags)
@@ -885,18 +855,36 @@ void printFaultDebug(uint32_t flags)
         // print offending instruction
         putsUart0("--- OFFENDING INSTRUCTION ---\n");
         uint32_t *faultingPc = (uint32_t*) currentPsp[6];
-
-        // 3. Read the 16-bit instruction value directly from that memory address.
+        uint32_t rawInstruction = *faultingPc;
+        uint32_t ntohsInstruction = (rawInstruction << 16) | (rawInstruction >> 16);
 
         char hexStr[12]; // Buffer for "0x0000.0000" formatted string
-        itoh((uint32_t) *faultingPc, hexStr);
+        itoh_be(ntohsInstruction, hexStr);
+        putsUart0("Faulting PC Address: ");
         putsUart0(hexStr);
-        putsUart0(": ");
+        putsUart0("\n\n");
     }
 
     if (flags & PRINT_DATA_ADDRESSES)
     {
         // print data addresses
         putsUart0("--- DATA ADDRESSES ---\n");
+
+        // Check if the MMFAR contains a valid address
+        if (NVIC_FAULT_STAT_R & NVIC_FAULT_STAT_MMARV)
+        {
+            uint32_t faultingDataAddress = NVIC_MM_ADDR_R;
+            char addrStr[12];
+            itoh_be(faultingDataAddress, addrStr);
+
+            putsUart0("Faulting Data Address (MMFAR): ");
+            putsUart0(addrStr);
+            putsUart0("\n\n");
+        }
+        else
+        {
+            putsUart0("No valid data address was recorded for this fault.\n\n");
+        }
+
     }
 }

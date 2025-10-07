@@ -31,11 +31,11 @@ void applySramAccessMask(uint64_t srdBitMask);
 void addSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd, uint32_t size_in_bytes);
 void revokeSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd, uint32_t size_in_bytes);
 void setupMPU();
-void comprehensiveMPUTest();
-void testMpuAfterFree();
-void testSRAM();
+void testSRAMpriv();
+void testSRAMunpriv();
+void testSRAMunprivFree();
 
-void printPid();
+void printPid(int newlines);
 void printFaultDebug(uint32_t flags);
 
 #endif
