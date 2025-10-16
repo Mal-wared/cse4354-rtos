@@ -15,6 +15,17 @@
 // Subroutines
 //-----------------------------------------------------------------------------
 
+void yield(void);
+void reboot(void);
+void ps(void);
+void ipcs(void);
+void kill(uint32_t pid);
+void pkill(const char name[]);
+void pi(bool on);
+void preempt(bool on);
+void sched(bool prio_on);
+void pidof(const char name[]);
+void run(const char name[]);
 void shell(void);
 
 #endif
