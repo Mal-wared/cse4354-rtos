@@ -319,7 +319,7 @@ void allowFlashAccess(void)
     //  Table 3-4 (Page 129): Cache Policy for Memory Attribute Encoding
     //  Table 3-5 (Page 129): AP Bit Field Encoding
     // As defined in:
-    //  Table 3-6 (Page 130): Memory Region Attributes for Tiva™ C Series Microcontrollers
+    //  Table 3-6 (Page 130): Memory Region Attributes for Tivaï¿½ C Series Microcontrollers
     // For: Flash Memory RWX
     // TEX: 0b000
     // S:   0
@@ -413,7 +413,7 @@ void allowPeripheralAccess(void)
     //  Table 3-4 (Page 129): Cache Policy for Memory Attribute Encoding
     //  Table 3-5 (Page 129): AP Bit Field Encoding
     // As defined in:
-    //  Table 3-6 (Page 130): Memory Region Attributes for Tiva™ C Series Microcontrollers
+    //  Table 3-6 (Page 130): Memory Region Attributes for Tivaï¿½ C Series Microcontrollers
     // For: Peripheral Memory RW Unprivileged and Privileged
     // TEX: 0b000
     // S:   1
@@ -504,7 +504,7 @@ void setupSramAccess(void)
         //  Table 3-4 (Page 129): Cache Policy for Memory Attribute Encoding
         //  Table 3-5 (Page 129): AP Bit Field Encoding
         // As defined in:
-        //  Table 3-6 (Page 130): Memory Region Attributes for Tiva™ C Series Microcontrollers
+        //  Table 3-6 (Page 130): Memory Region Attributes for Tivaï¿½ C Series Microcontrollers
         // For: SRAM Memory RW Privileged & No Access Unprivileged
         // TEX: 0b000
         // S:   0

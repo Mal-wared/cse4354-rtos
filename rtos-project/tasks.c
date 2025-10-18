@@ -19,12 +19,21 @@
 #include "wait.h"
 #include "kernel.h"
 #include "tasks.h"
+#include "clock.h"
+#include "nvic.h"
 
 #define BLUE_LED   PORTF,2 // on-board blue LED
 #define RED_LED    PORTE,0 // off-board red LED
 #define ORANGE_LED PORTA,2 // off-board orange LED
 #define YELLOW_LED PORTA,3 // off-board yellow LED
 #define GREEN_LED  PORTA,4 // off-board green LED
+
+#define BUTTON1    PORTB,0 // off-board pushbutton
+#define BUTTON2    PORTB,1 // off-board pushbutton
+#define BUTTON3    PORTB,4 // off-board pushbutton
+#define BUTTON4    PORTA,6 // off-board pushbutton
+#define BUTTON5    PORTE,1 // off-board pushbutton
+#define BUTTON6    PORTE,2 // off-board pushbutton
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -36,18 +45,79 @@
 void initHw(void)
 {
     // Setup LEDs and pushbuttons
+    initSystemClockTo40Mhz();
+
+    // Enable clocks
+    enablePort(PORTA);
+    enablePort(PORTB);
+    enablePort(PORTE);
+    enablePort(PORTF);
+
+    // Configure LEDs
+    selectPinPushPullOutput(BLUE_LED);
+    selectPinPushPullOutput(RED_LED);
+    selectPinPushPullOutput(ORANGE_LED);
+    selectPinPushPullOutput(YELLOW_LED);
+    selectPinPushPullOutput(GREEN_LED);
+
+    // Configure pushbuttons
+    selectPinDigitalInput(BUTTON1);
+    selectPinDigitalInput(BUTTON2);
+    selectPinDigitalInput(BUTTON3);
+    selectPinDigitalInput(BUTTON4);
+    selectPinDigitalInput(BUTTON5);
+    selectPinDigitalInput(BUTTON6);
+
+    enablePinPulldown(BUTTON1);
+    enablePinPulldown(BUTTON2);
+    enablePinPulldown(BUTTON3);
+    enablePinPulldown(BUTTON4);
+    enablePinPulldown(BUTTON5);
+    enablePinPulldown(BUTTON6);
+
+    selectPinInterruptFallingEdge(BUTTON1);
+    selectPinInterruptFallingEdge(BUTTON2);
+    selectPinInterruptFallingEdge(BUTTON3);
+    selectPinInterruptFallingEdge(BUTTON4);
+    selectPinInterruptFallingEdge(BUTTON5);
+    selectPinInterruptFallingEdge(BUTTON6);
+
+    clearPinInterrupt(BUTTON1);
+    clearPinInterrupt(BUTTON2);
+    clearPinInterrupt(BUTTON3);
+    clearPinInterrupt(BUTTON4);
+    clearPinInterrupt(BUTTON5);
+    clearPinInterrupt(BUTTON6);
+
+    enableNvicInterrupt(INT_GPIOA);
+    enableNvicInterrupt(INT_GPIOB);
+    enableNvicInterrupt(INT_GPIOE);
 
     // Power-up flash
     setPinValue(GREEN_LED, 1);
     waitMicrosecond(250000);
     setPinValue(GREEN_LED, 0);
     waitMicrosecond(250000);
+
+    // Enable Bus, Usage, and Memory Faults
+    NVIC_SYS_HND_CTRL_R |= NVIC_SYS_HND_CTRL_BUS | NVIC_SYS_HND_CTRL_USAGE
+            | NVIC_SYS_HND_CTRL_MEM;
+
+    // Enable divide-by-zero trap
+    NVIC_CFG_CTRL_R |= NVIC_CFG_CTRL_DIV0;
 }
 
 // REQUIRED: add code to return a value from 0-63 indicating which of 6 PBs are pressed
 uint8_t readPbs(void)
 {
-    return 0;
+    int8_t pb = -1;
+    if (!getPinValue(BUTTON1)) pb = 1;
+    if (!getPinValue(BUTTON2)) pb = 2;
+    if (!getPinValue(BUTTON3)) pb = 3;
+    if (!getPinValue(BUTTON4)) pb = 4;
+    if (!getPinValue(BUTTON5)) pb = 5;
+    if (!getPinValue(BUTTON6)) pb = 6;
+    return pb;
 }
 
 // one task must be ready at all times or the scheduler will fail

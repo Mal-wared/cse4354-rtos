@@ -62,8 +62,15 @@ void post(int8_t semaphore);
 void lock(int8_t mutex);
 void unlock(int8_t mutex);
 
+void testSRAMpriv();
+void testSRAMunpriv();
+void testSRAMunprivFree();
+
+void printPid(int newlines);
+
 void systickIsr(void);
 void pendSvIsr(void);
+void triggerPendSvFault(void);
 void svCallIsr(void);
 
 #endif

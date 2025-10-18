@@ -16,6 +16,13 @@
 #include "tm4c123gh6pm.h"
 #include "mm.h"
 #include "kernel.h"
+#include "uart0.h"
+#include "util.h"
+#include "faults.h"
+#include "stackHelper.h"
+
+uint32_t pid = 0;
+uint64_t mask;
 
 //-----------------------------------------------------------------------------
 // RTOS Defines and Kernel Variables
@@ -63,15 +70,15 @@ bool preemption = false;          // preemption (true) or cooperative (false)
 struct _tcb
 {
     uint8_t state;                 // see STATE_ values above
-    void *pid;                     // used to uniquely identify thread (add of task fn)
+    void *pid;              // used to uniquely identify thread (add of task fn)
     void *sp;                      // current stack pointer
     uint8_t priority;              // 0=highest
     uint8_t currentPriority;       // 0=highest (needed for pi)
     uint32_t ticks;                // ticks until sleep complete
     uint64_t srd;                  // MPU subregion disable bits
     char name[16];                 // name of task used in ps command
-    uint8_t mutex;                 // index of the mutex in use or blocking the thread
-    uint8_t semaphore;             // index of the semaphore that is blocking the thread
+    uint8_t mutex;           // index of the mutex in use or blocking the thread
+    uint8_t semaphore;     // index of the semaphore that is blocking the thread
 } tcb[MAX_TASKS];
 
 //-----------------------------------------------------------------------------
@@ -133,6 +140,7 @@ uint8_t rtosScheduler(void)
 // fn set TMPL bit, and PC <= fn
 void startRtos(void)
 {
+    shell();
 }
 
 // REQUIRED:
@@ -140,7 +148,8 @@ void startRtos(void)
 // store the thread name
 // allocate stack space and store top of stack in sp and spInit
 // set the srd bits based on the memory allocation
-bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackBytes)
+bool createThread(_fn fn, const char name[], uint8_t priority,
+                  uint32_t stackBytes)
 {
     bool ok = false;
     uint8_t i = 0;
@@ -150,13 +159,16 @@ bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackByt
         // make sure fn not already in list (prevent reentrancy)
         while (!found && (i < MAX_TASKS))
         {
-            found = (tcb[i++].pid ==  fn);
+            found = (tcb[i++].pid == fn);
         }
         if (!found)
         {
             // find first available tcb record
             i = 0;
-            while (tcb[i].state != STATE_INVALID) {i++;}
+            while (tcb[i].state != STATE_INVALID)
+            {
+                i++;
+            }
             tcb[i].state = STATE_UNRUN;
             tcb[i].pid = fn;
             tcb[i].sp = 0;
@@ -219,6 +231,66 @@ void unlock(int8_t mutex)
 {
 }
 
+void testSRAMpriv()
+{
+    uint32_t *pointers[12];
+    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    int i;
+    for (i = 0; i < 10; i++) {
+        pointers[i] = mallocHeap(malloc_regions[i]);
+    }
+    applySramAccessMask(mask);
+    *pointers[2] = 10;
+
+    for (i = 0; i < 10; i++) {
+        freeHeap(pointers[i]);
+    }
+
+
+}
+
+// can't free heap in unprivileged mode
+void testSRAMunpriv()
+{
+    uint32_t *pointers[12];
+    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    int i;
+    for (i = 0; i < 10; i++) {
+        pointers[i] = mallocHeap(malloc_regions[i]);
+    }
+    applySramAccessMask(mask);
+    setTMPL();
+    *pointers[2] = 10;
+}
+
+void testSRAMunprivFree()
+{
+    uint32_t *pointers[12];
+    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    int i;
+    for (i = 0; i < 10; i++) {
+        pointers[i] = mallocHeap(malloc_regions[i]);
+    }
+    freeHeap(pointers[2]);
+    applySramAccessMask(mask);
+    setTMPL();
+    *pointers[2] = 10;
+
+}
+
+void printPid(int newlines)
+{
+    // String of size 12 for 10 digits (4,294,967,295) + 1 sign + 1 null terminator
+    char pidStr[12];
+    itoa(pid, pidStr);
+    putsUart0(pidStr);
+    int i;
+    for (i = 0; i < newlines; i++)
+    {
+        putsUart0("\n");
+    }
+}
+
 // REQUIRED: modify this function to add support for the system timer
 // REQUIRED: in preemptive code, add code to request task switch
 void systickIsr(void)
@@ -229,11 +301,40 @@ void systickIsr(void)
 // REQUIRED: process UNRUN and READY tasks differently
 void pendSvIsr(void)
 {
+    putsUart0("--- PENDSV HANDLER ---\n");
+    putsUart0("Pendsv in process ");
+    printPid(0);
+
+    if (NVIC_FAULT_STAT_R & (NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR))
+    {
+        NVIC_FAULT_STAT_R &= ~(NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR);
+        putsUart0(", called from MPU\n\n");
+    }
+    else
+    {
+        putsUart0("\n\n");
+    }
+
+    uint32_t debugFlags = PRINT_MFAULT_FLAGS;
+    printFaultDebug(debugFlags);
+
+    while (1)
+    {
+    }
 }
+
+void triggerPendSvFault()
+{
+    NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
+}
+
+
 
 // REQUIRED: modify this function to add support for the service call
 // REQUIRED: in preemptive code, add code to handle synchronization primitives
 void svCallIsr(void)
 {
 }
+
+
 

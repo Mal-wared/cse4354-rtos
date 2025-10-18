@@ -24,6 +24,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Constants
+#define MAX_CHARS 80
+#define MAX_FIELDS 5
+
+// Structs
+typedef struct _USER_DATA
+{
+    char buffer[MAX_CHARS+1];
+    uint8_t fieldCount;
+    uint8_t fieldPosition[MAX_FIELDS];
+    char fieldType[MAX_FIELDS];
+} USER_DATA;
+
 //-----------------------------------------------------------------------------
 // Subroutines
 //-----------------------------------------------------------------------------
@@ -33,6 +46,11 @@ void setUart0BaudRate(uint32_t baudRate, uint32_t fcyc);
 void putcUart0(char c);
 void putsUart0(char* str);
 char getcUart0();
+void getsUart0(USER_DATA* data);
+void parseFields(USER_DATA* data);
+int32_t getFieldInteger(USER_DATA* data, uint8_t fieldNumber);
+char* getFieldString(USER_DATA* data, uint8_t fieldNumber);
+bool isCommand(USER_DATA* data, const char strCommand[], uint8_t minArguments);
 bool kbhitUart0();
 
 #endif

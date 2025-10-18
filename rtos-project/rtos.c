@@ -78,6 +78,7 @@ int main(void)
     ok &= createThread(uncooperative, "Uncoop", 6, 1024);
     ok &= createThread(errant, "Errant", 6, 1024);
     ok &= createThread(shell, "Shell", 6, 4096);
+    ok = 1;
 
     // Start up RTOS
     if (ok)

@@ -48,10 +48,6 @@
 
 // REQUIRED: add processing for the shell commands through the UART here
 
-void yield(void)
-{
-
-}
 
 void reboot(void)
 {
@@ -70,7 +66,7 @@ void ipcs(void)
 
 void kill(uint32_t pid)
 {
-    char pidStr[MAX_CHARS];
+    char pidStr[12];
     itoa(pid, pidStr);
     putsUart0(pidStr);
     putsUart0(" killed\n");
@@ -233,13 +229,13 @@ void shell(void)
             {
                 bool on;
                 char *piStr = getFieldString(&data, 1);
-                if (strcmp(piStr, "ON") == 0)
+                if (stricmp(piStr, "ON") == 0)
                 {
                     on = true;
                     valid = true;
                     pi(on);
                 }
-                else if (strcmp(piStr, "OFF") == 0)
+                else if (stricmp(piStr, "OFF") == 0)
                 {
                     on = false;
                     valid = true;
@@ -251,13 +247,13 @@ void shell(void)
             {
                 bool on;
                 char *preemptStr = getFieldString(&data, 1);
-                if (strcmp(preemptStr, "ON") == 0)
+                if (stricmp(preemptStr, "ON") == 0)
                 {
                     on = true;
                     valid = true;
                     preempt(on);
                 }
-                else if (strcmp(preemptStr, "OFF") == 0)
+                else if (stricmp(preemptStr, "OFF") == 0)
                 {
                     on = false;
                     valid = true;
@@ -269,13 +265,13 @@ void shell(void)
             {
                 bool on;
                 char *schedStr = getFieldString(&data, 1);
-                if (strcmp(schedStr, "PRIO") == 0)
+                if (stricmp(schedStr, "PRIO") == 0)
                 {
                     on = true;
                     valid = true;
                     sched(on);
                 }
-                else if (strcmp(schedStr, "RR") == 0)
+                else if (stricmp(schedStr, "RR") == 0)
                 {
                     on = false;
                     valid = true;
