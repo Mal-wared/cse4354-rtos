@@ -22,19 +22,6 @@
 #include "clock.h"
 #include "nvic.h"
 
-#define BLUE_LED   PORTF,2 // on-board blue LED
-#define RED_LED    PORTE,0 // off-board red LED
-#define ORANGE_LED PORTA,2 // off-board orange LED
-#define YELLOW_LED PORTA,3 // off-board yellow LED
-#define GREEN_LED  PORTA,4 // off-board green LED
-
-#define BUTTON1    PORTB,0 // off-board pushbutton
-#define BUTTON2    PORTB,1 // off-board pushbutton
-#define BUTTON3    PORTB,4 // off-board pushbutton
-#define BUTTON4    PORTA,6 // off-board pushbutton
-#define BUTTON5    PORTE,1 // off-board pushbutton
-#define BUTTON6    PORTE,2 // off-board pushbutton
-
 //-----------------------------------------------------------------------------
 // Subroutines
 //-----------------------------------------------------------------------------

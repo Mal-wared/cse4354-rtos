@@ -23,22 +23,7 @@
 #include "util.h"
 #include "stackHelper.h"
 #include "gpio.h"
-
-// Bitband aliases
-#define RED_LED      (*((volatile uint32_t *)(0x42000000 + (0x400253FC-0x40000000)*32 + 1*4)))
-#define GREEN_LED    (*((volatile uint32_t *)(0x42000000 + (0x400253FC-0x40000000)*32 + 3*4)))
-
-#define BUT0 PORTA,5
-#define BUT1 PORTA,6
-#define BUT2 PORTA,7
-
-#define BUT3 PORTE,3
-#define BUT4 PORTE,2
-#define BUT5 PORTE,1
-
-// PortF masks
-#define GREEN_LED_MASK 8
-#define RED_LED_MASK 2
+#include "tasks.h"
 
 // REQUIRED: Add header files here for your strings functions, ...
 
@@ -123,13 +108,14 @@ void pidof(const char name[])
 
 void run(const char name[])
 {
-    RED_LED ^= 1;
-    if (RED_LED == 0)
+    if (getPinValue(BLUE_LED))
     {
+        setPinValue(BLUE_LED, 0);
         putsUart0("RED_LED turned off");
     }
     else
     {
+        setPinValue(BLUE_LED, 1);
         putsUart0("RED_LED turned on");
     }
 
@@ -288,7 +274,6 @@ void shell(void)
 
             if (isCommand(&data, "run", 1))
             {
-
                 char *proc_name = getFieldString(&data, 1);
                 valid = true;
                 run(proc_name);
