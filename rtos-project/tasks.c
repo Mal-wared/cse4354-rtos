@@ -97,13 +97,13 @@ void initHw(void)
 // REQUIRED: add code to return a value from 0-63 indicating which of 6 PBs are pressed
 uint8_t readPbs(void)
 {
-    int8_t pb = -1;
-    if (!getPinValue(BUTTON1)) pb = 1;
-    if (!getPinValue(BUTTON2)) pb = 2;
-    if (!getPinValue(BUTTON3)) pb = 3;
-    if (!getPinValue(BUTTON4)) pb = 4;
-    if (!getPinValue(BUTTON5)) pb = 5;
-    if (!getPinValue(BUTTON6)) pb = 6;
+    int8_t pb = 0;
+    if (!getPinValue(BUTTON1)) pb |= (1 << 0);
+    if (!getPinValue(BUTTON2)) pb |= (1 << 1);
+    if (!getPinValue(BUTTON3)) pb |= (1 << 2);
+    if (!getPinValue(BUTTON4)) pb |= (1 << 3);
+    if (!getPinValue(BUTTON5)) pb |= (1 << 4);
+    if (!getPinValue(BUTTON6)) pb |= (1 << 5);
     return pb;
 }
 

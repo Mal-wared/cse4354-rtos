@@ -24,6 +24,7 @@
 #include "stackHelper.h"
 #include "gpio.h"
 #include "tasks.h"
+#include "faults.h"
 
 // REQUIRED: Add header files here for your strings functions, ...
 
