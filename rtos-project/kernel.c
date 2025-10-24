@@ -20,6 +20,7 @@
 #include "util.h"
 #include "faults.h"
 #include "stackHelper.h"
+#include "tasks.h"
 
 uint32_t pid = 0;
 uint64_t mask;
@@ -140,6 +141,9 @@ uint8_t rtosScheduler(void)
 // fn set TMPL bit, and PC <= fn
 void startRtos(void)
 {
+    while(1) {
+        readKeys();
+    }
     shell();
 }
 

@@ -21,6 +21,7 @@
 #include "tasks.h"
 #include "clock.h"
 #include "nvic.h"
+#include "uart0.h"
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -98,12 +99,12 @@ void initHw(void)
 uint8_t readPbs(void)
 {
     int8_t pb = 0;
-    if (!getPinValue(BUTTON1)) pb |= (1 << 0);
-    if (!getPinValue(BUTTON2)) pb |= (1 << 1);
-    if (!getPinValue(BUTTON3)) pb |= (1 << 2);
-    if (!getPinValue(BUTTON4)) pb |= (1 << 3);
-    if (!getPinValue(BUTTON5)) pb |= (1 << 4);
-    if (!getPinValue(BUTTON6)) pb |= (1 << 5);
+    if (getPinValue(BUTTON1)) pb |= (1 << 0);
+    if (getPinValue(BUTTON2)) pb |= (1 << 1);
+    if (getPinValue(BUTTON3)) pb |= (1 << 2);
+    if (getPinValue(BUTTON4)) pb |= (1 << 3);
+    if (getPinValue(BUTTON5)) pb |= (1 << 4);
+    if (getPinValue(BUTTON6)) pb |= (1 << 5);
     return pb;
 }
 
@@ -178,24 +179,29 @@ void readKeys(void)
         post(keyPressed);
         if ((buttons & 1) != 0)
         {
+            putsUart0("push button 1");
             setPinValue(YELLOW_LED, !getPinValue(YELLOW_LED));
             setPinValue(RED_LED, 1);
         }
         if ((buttons & 2) != 0)
         {
+            putsUart0("push button 2");
             post(flashReq);
             setPinValue(RED_LED, 0);
         }
         if ((buttons & 4) != 0)
         {
+            putsUart0("push button 3");
             restartThread(flash4Hz);
         }
         if ((buttons & 8) != 0)
         {
+            putsUart0("push button 4");
             killThread(flash4Hz);
         }
         if ((buttons & 16) != 0)
         {
+            putsUart0("push button 5");
             setThreadPriority(lengthyFn, 4);
         }
         yield();

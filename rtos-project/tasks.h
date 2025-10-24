@@ -17,12 +17,12 @@
 #define YELLOW_LED PORTA,3 // off-board yellow LED
 #define GREEN_LED  PORTA,4 // off-board green LED
 
-#define BUTTON1    PORTB,0 // off-board pushbutton
-#define BUTTON2    PORTB,1 // off-board pushbutton
-#define BUTTON3    PORTB,4 // off-board pushbutton
-#define BUTTON4    PORTA,6 // off-board pushbutton
-#define BUTTON5    PORTE,1 // off-board pushbutton
-#define BUTTON6    PORTE,2 // off-board pushbutton
+#define BUTTON1    PORTA,5 // off-board pushbutton
+#define BUTTON2    PORTA,6 // off-board pushbutton
+#define BUTTON3    PORTA,7 // off-board pushbutton
+#define BUTTON4    PORTE,3 // off-board pushbutton
+#define BUTTON5    PORTE,2 // off-board pushbutton
+#define BUTTON6    PORTE,1 // off-board pushbutton
 
 //-----------------------------------------------------------------------------
 // Subroutines

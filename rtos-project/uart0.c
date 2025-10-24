@@ -79,8 +79,7 @@ void setUart0BaudRate(uint32_t baudRate, uint32_t fcyc)
 // Blocking function that writes a serial character when the UART buffer is not full
 void putcUart0(char c)
 {
-    while (UART0_FR_R & UART_FR_TXFF)
-        ;               // wait if uart0 tx fifo full
+    while (UART0_FR_R & UART_FR_TXFF);               // wait if uart0 tx fifo full
     UART0_DR_R = c;                                  // write character to fifo
 }
 
