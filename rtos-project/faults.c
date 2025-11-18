@@ -19,6 +19,7 @@
 #include "mm.h"
 #include "kernel.h"
 #include "stackHelper.h"
+#include "util.h"
 
 //-----------------------------------------------------------------------------
 // Subroutines

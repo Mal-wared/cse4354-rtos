@@ -18,7 +18,7 @@ int stricmp(const char *s1, const char *s2);
 char tolower(char c);
 void reverseStr(char str[], int length);
 char* strcpy(char* dest, const char* src);
-char* strncpy(char* dest, const char* src, size_t n);
+char* strncpy(char *dest, const char *src, unsigned int char_limit);
 void itoa(int32_t num, char str[]);
 void itoh(uint32_t num, char* str);
 void itoh_be(uint32_t num, char* str);

@@ -28,7 +28,7 @@
 
 uint64_t mask;
 
-volatile uint8_t heap[MPU_REGION_COUNT * MPU_REGION_SIZE_B];
+volatile uint8_t heap[MPU_REGION_COUNT * MPU_REGION_SIZE_B] __attribute__((aligned(1024)));
 
 // Tracks which 1024-byte (1 MB) chunks are currently being used
 int allocated_lengths[MPU_REGION_COUNT] = { 0 };
@@ -505,7 +505,6 @@ void revokeSramAccessWindow(uint64_t *srdBitMask, uint32_t *baseAdd,
 // REQUIRED: add code to initialize the memory manager
 void initMemoryManager(void)
 {
-    setupSramAccess();
     mask = createNoSramAccessMask();
     //    addSramAccessWindow(&mask, (uint32_t *)0x20000000, 32768);
     applySramAccessMask(mask);
@@ -517,6 +516,9 @@ void initMemoryManager(void)
 void initMpu(void)
 {
     // REQUIRED: call your MPU functions here
+    allowFlashAccess();
+    allowPeripheralAccess();
+    setupSramAccess();
     NVIC_MPU_CTRL_R |= NVIC_MPU_CTRL_ENABLE | NVIC_MPU_CTRL_PRIVDEFEN;
 }
 

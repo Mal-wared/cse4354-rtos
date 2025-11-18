@@ -12,10 +12,10 @@
 #define TASKS_H_
 
 #define BLUE_LED   PORTF,2 // on-board blue LED
-#define RED_LED    PORTE,0 // off-board red LED
-#define ORANGE_LED PORTA,2 // off-board orange LED
-#define YELLOW_LED PORTA,3 // off-board yellow LED
-#define GREEN_LED  PORTA,4 // off-board green LED
+#define RED_LED    PORTA,2 // off-board red LED
+#define ORANGE_LED PORTA,3 // off-board orange LED
+#define YELLOW_LED PORTA,4 // off-board yellow LED
+#define GREEN_LED  PORTE,0 // off-board green LED
 
 #define BUTTON1    PORTA,5 // off-board pushbutton
 #define BUTTON2    PORTA,6 // off-board pushbutton

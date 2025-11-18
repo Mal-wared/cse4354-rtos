@@ -17,4 +17,6 @@ extern void setMsp(void * msp);
 extern void setAspBit(void);
 extern void setTMPL(void);
 
+extern void launchFirstTask(uint32_t* psp);
+
 #endif

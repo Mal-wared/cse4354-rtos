@@ -106,24 +106,24 @@ char* strcpy(char *dest, const char *src)
     return original_dest;
 }
 
-char* strncpy(char *dest, const char *src, size_t n)
+char* strncpy(char *dest, const char *src, unsigned int char_limit)
 {
-    size_t i;
+    // Save the original destination address
+    char *original_dest = dest;
 
-    // Copy characters from src as long as we are within n
-    //    and haven't hit the end of the source string.
-    for (i = 0; i < n && src[i] != '\0'; i++)
+    unsigned int i = 0;
+    while (*src != '\0' && i < char_limit - 1)
     {
-        dest[i] = src[i];
+        *dest = *src;
+        dest++;
+        src++;
+        i++;
     }
 
-    // If src was shorter than n, pad the rest of dest with '\0'.
-    for (; i < n; i++)
-    {
-        dest[i] = '\0';
-    }
+    *dest = '\0';
 
-    return dest;
+    // Return the original starting address of the destination
+    return original_dest;
 }
 
 void itoa(int32_t num, char *str)

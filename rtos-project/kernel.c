@@ -136,15 +136,26 @@ uint8_t rtosScheduler(void)
     return task;
 }
 
+
 // REQUIRED: modify this function to start the operating system
 // by calling scheduler, set srd bits, setting PSP, ASP bit, call fn with fn add in R0
 // fn set TMPL bit, and PC <= fn
 void startRtos(void)
 {
-    while(1) {
-        readKeys();
-    }
-    shell();
+    uint8_t currentTask = rtosScheduler();
+    tcb[currentTask].state = STATE_READY;
+
+    // apply MPU settings to task
+    applySramAccessMask(tcb[currentTask].srd);
+
+    uint32_t* psp = tcb[currentTask].sp;
+
+    setAspBit();
+    setTMPL();
+
+    launchFirstTask(psp);
+
+
 }
 
 // REQUIRED:
@@ -172,12 +183,49 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
             while (tcb[i].state != STATE_INVALID)
             {
                 i++;
+                if (i >= MAX_TASKS) {
+                    // No available space in the tcb
+                    return false;
+                }
             }
+
+            // allocate memory for the process
+            void *stack = mallocHeap(stackBytes);
+            if (stack == NULL) {
+                return false;
+            }
+
+            // set srd bits for tcb
+            tcb[i].srd = createNoSramAccessMask();
+            addSramAccessWindow(&tcb[i].srd, (uint32_t*)stack, stackBytes);
+
+            // set stack pointer dummy variables
+            uint32_t* sp = (uint32_t*)((uint32_t)stack + stackBytes);
+            *(--sp) = 0x01000000;     // xPSR
+            *(--sp) = (uint32_t)fn;  // PC
+            *(--sp) = 0xFFFFFFFD;     // LR
+            *(--sp) = 0x12121212;     // R12
+            *(--sp) = 0x03030303;     // R3
+            *(--sp) = 0x02020202;     // R2
+            *(--sp) = 0x01010101;     // R1
+            *(--sp) = 0x00000000;     // R0
+            *(--sp) = 0x11111111;     // R11
+            *(--sp) = 0x10101010;     // R10
+            *(--sp) = 0x09090909;     // R9
+            *(--sp) = 0x08080808;     // R8
+            *(--sp) = 0x07070707;     // R7
+            *(--sp) = 0x06060606;     // R6
+            *(--sp) = 0x05050505;     // R5
+            *(--sp) = 0x04040404;     // R4
+            tcb[i].sp = sp;
+
+            // set tcb properties
             tcb[i].state = STATE_UNRUN;
             tcb[i].pid = fn;
-            tcb[i].sp = 0;
+            strncpy(tcb[i].name, name, sizeof(tcb[i].name));
             tcb[i].priority = priority;
-            tcb[i].srd = 0;
+            tcb[i].currentPriority = priority;
+
 
             // increment task count
             taskCount++;
@@ -218,6 +266,7 @@ void sleep(uint32_t tick)
 // REQUIRED: modify this function to wait a semaphore using pendsv
 void wait(int8_t semaphore)
 {
+
 }
 
 // REQUIRED: modify this function to signal a semaphore is available using pendsv
