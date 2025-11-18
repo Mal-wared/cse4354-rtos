@@ -81,7 +81,6 @@ void triggerHardFault()
 
     // Divide-by-zero trap generates a UsageFault. Since its handler is disabled,
     // it escalates to HardFault handler.
-    putSomethingIntoR3();
     volatile int z = x / y;
 }
 

@@ -149,12 +149,11 @@ void startRtos(void)
     applySramAccessMask(tcb[currentTask].srd);
 
     uint32_t* psp = tcb[currentTask].sp;
-
+    setPsp(psp);
+    loadR3((uint32_t)tcb[currentTask].pid);
     setAspBit();
     setTMPL();
-
-    launchFirstTask(psp);
-
+    setSP();
 
 }
 
@@ -201,22 +200,6 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
 
             // set stack pointer dummy variables
             uint32_t* sp = (uint32_t*)((uint32_t)stack + stackBytes);
-            *(--sp) = 0x01000000;     // xPSR
-            *(--sp) = (uint32_t)fn;  // PC
-            *(--sp) = 0xFFFFFFFD;     // LR
-            *(--sp) = 0x12121212;     // R12
-            *(--sp) = 0x03030303;     // R3
-            *(--sp) = 0x02020202;     // R2
-            *(--sp) = 0x01010101;     // R1
-            *(--sp) = 0x00000000;     // R0
-            *(--sp) = 0x11111111;     // R11
-            *(--sp) = 0x10101010;     // R10
-            *(--sp) = 0x09090909;     // R9
-            *(--sp) = 0x08080808;     // R8
-            *(--sp) = 0x07070707;     // R7
-            *(--sp) = 0x06060606;     // R6
-            *(--sp) = 0x05050505;     // R5
-            *(--sp) = 0x04040404;     // R4
             tcb[i].sp = sp;
 
             // set tcb properties

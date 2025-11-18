@@ -7,7 +7,9 @@
 // Function Prototypes
 //-----------------------------------------------------------------------------
 
-extern void putSomethingIntoR3(void);
+extern void loadR3(uint32_t value);
+extern void setSP(void);
+
 extern uint32_t * getPsp(void);
 extern void setPsp(void * psp);
 
@@ -17,6 +19,6 @@ extern void setMsp(void * msp);
 extern void setAspBit(void);
 extern void setTMPL(void);
 
-extern void launchFirstTask(uint32_t* psp);
+extern void launchFirstTask(void);
 
 #endif
