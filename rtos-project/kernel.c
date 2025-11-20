@@ -142,19 +142,18 @@ uint8_t rtosScheduler(void)
 // fn set TMPL bit, and PC <= fn
 void startRtos(void)
 {
-    uint8_t currentTask = rtosScheduler();
-    tcb[currentTask].state = STATE_READY;
+    taskCurrent = rtosScheduler();
+    tcb[taskCurrent].state = STATE_READY;
 
     // apply MPU settings to task
-    applySramAccessMask(tcb[currentTask].srd);
+    applySramAccessMask(tcb[taskCurrent].srd);
 
-    uint32_t* psp = tcb[currentTask].sp;
+    uint32_t* psp = tcb[taskCurrent].sp;
     setPsp(psp);
-    loadR3((uint32_t)tcb[currentTask].pid);
+    loadR3((uint32_t)tcb[taskCurrent].pid);
     setAspBit();
     setTMPL();
-    setSP();
-
+    setPC();
 }
 
 // REQUIRED:
@@ -238,12 +237,14 @@ void setThreadPriority(_fn fn, uint8_t priority)
 // REQUIRED: modify this function to yield execution back to scheduler using pendsv
 void yield(void)
 {
+    svcYield();
 }
 
 // REQUIRED: modify this function to support 1ms system timer
 // execution yielded back to scheduler until time elapses using pendsv
 void sleep(uint32_t tick)
 {
+
 }
 
 // REQUIRED: modify this function to wait a semaphore using pendsv
@@ -337,6 +338,8 @@ void systickIsr(void)
 // REQUIRED: process UNRUN and READY tasks differently
 void pendSvIsr(void)
 {
+    tcb[taskCurrent].sp = saveContext();
+
     putsUart0("--- PENDSV HANDLER ---\n");
     putsUart0("Pendsv in process ");
     printPid(0);
@@ -354,9 +357,11 @@ void pendSvIsr(void)
     uint32_t debugFlags = PRINT_MFAULT_FLAGS;
     printFaultDebug(debugFlags);
 
-    while (1)
-    {
-    }
+
+    taskCurrent = rtosScheduler();
+    applySramAccessMask(tcb[taskCurrent].srd);
+    restoreContext(tcb[taskCurrent].sp);
+
 }
 
 void triggerPendSvFault()
@@ -370,6 +375,7 @@ void triggerPendSvFault()
 // REQUIRED: in preemptive code, add code to handle synchronization primitives
 void svCallIsr(void)
 {
+    triggerPendSvFault();
 }
 
 

@@ -8,7 +8,13 @@
 //-----------------------------------------------------------------------------
 
 extern void loadR3(uint32_t value);
-extern void setSP(void);
+extern void setPC(void);
+
+extern void svcYield(void);
+extern void svcSleep(void);
+
+extern uint32_t * saveContext(void);
+extern void restoreContext(uint32_t * sp);
 
 extern uint32_t * getPsp(void);
 extern void setPsp(void * psp);
@@ -18,7 +24,5 @@ extern void setMsp(void * msp);
 
 extern void setAspBit(void);
 extern void setTMPL(void);
-
-extern void launchFirstTask(void);
 
 #endif

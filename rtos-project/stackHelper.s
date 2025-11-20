@@ -8,7 +8,10 @@
 ;
 ;-----------------------------------------------------------------------------
 	.global loadR3
-	.global setSP
+	.global setPC
+	.global svcCall
+	.global saveContext
+	.global restoreContext
     .global getPsp
     .global setPsp
     .global getMsp
@@ -29,8 +32,26 @@ loadR3:
     ISB
     BX LR
 
-setSP:
+setPC:
 	BX R3
+
+svcYield:
+	SVC #0
+	BX LR
+
+svcSleep:
+	SVC #1
+	BX LR
+
+saveContext:
+	MRS R0, PSP
+	STMDB R0!, {R4-R11}
+	BX LR
+
+restoreContext:
+	LDMIA R0!, {R4-R11}
+	MSR PSP, R0
+	BX LR
 
 getPsp:
     MRS R0, PSP         ; Move the value of the Process Stack Pointer into R0

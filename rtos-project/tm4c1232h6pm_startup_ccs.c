@@ -60,6 +60,8 @@ extern void hardFaultIsr(void);
 extern void mpuFaultIsr(void);
 extern void busFaultIsr(void);
 extern void usageFaultIsr(void);
+extern void svCallIsr(void);
+extern void pendSvIsr(void);
 
 //*****************************************************************************
 //
@@ -83,10 +85,10 @@ void (* const g_pfnVectors[])(void) =
     0,                                      // Reserved
     0,                                      // Reserved
     0,                                      // Reserved
-    IntDefaultHandler,                      // SVCall handler
+    svCallIsr,                      // SVCall handler
     IntDefaultHandler,                      // Debug monitor handler
     0,                                      // Reserved
-    IntDefaultHandler,                      // The PendSV handler
+    pendSvIsr,                      // The PendSV handler
     IntDefaultHandler,                      // The SysTick handler
     IntDefaultHandler,                      // GPIO Port A
     IntDefaultHandler,                      // GPIO Port B
