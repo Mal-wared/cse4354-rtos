@@ -286,6 +286,7 @@ void lock(int8_t mutex)
 // REQUIRED: modify this function to unlock a mutex using pendsv
 void unlock(int8_t mutex)
 {
+    __asm(" SVC #3 ");
 }
 
 void testSRAMpriv()
@@ -438,6 +439,33 @@ void svCallIsr(void)
                 tcb[taskCurrent].mutex = psp[0];
             }
             break;
+        case 3:
+            if (mutexes[psp[0]].lockedBy == taskCurrent) // Only owner can unlock
+            {
+                if (mutexes[psp[0]].queueSize > 0)
+                {
+                    uint8_t newMutexOwner = mutexes[psp[0]].processQueue[0];
+                    tcb[newMutexOwner].state = STATE_READY;
+                    mutexes[psp[0]].lockedBy = newMutexOwner;
+
+                    int i = 0;
+                    for (i = 0; i < mutexes[psp[0]].queueSize-1; i++)
+                    {
+                        mutexes[psp[0]].processQueue[i] = mutexes[psp[0]].processQueue[i+1];
+                    }
+
+
+                    mutexes[psp[0]].queueSize--;
+                }
+                else
+                {
+                     // No one waiting: just unlock
+                     mutexes[psp[0]].lock = false;
+                     mutexes[psp[0]].lockedBy = 0;
+                }
+                // Update the current task's record to show it holds nothing
+                tcb[taskCurrent].mutex = 0;
+            }
     }
 }
 
