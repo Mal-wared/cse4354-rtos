@@ -62,6 +62,7 @@ extern void busFaultIsr(void);
 extern void usageFaultIsr(void);
 extern void svCallIsr(void);
 extern void pendSvIsr(void);
+extern void systickIsr(void);
 
 //*****************************************************************************
 //
@@ -89,7 +90,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // Debug monitor handler
     0,                                      // Reserved
     pendSvIsr,                      // The PendSV handler
-    IntDefaultHandler,                      // The SysTick handler
+    systickIsr,                      // The SysTick handler
     IntDefaultHandler,                      // GPIO Port A
     IntDefaultHandler,                      // GPIO Port B
     IntDefaultHandler,                      // GPIO Port C
@@ -277,8 +278,7 @@ NmiSR(void)
 // for examination by a debugger.
 //
 //*****************************************************************************
-static void
-FaultISR(void)
+static void FaultISR(void)
 {
     //
     // Enter an infinite loop.

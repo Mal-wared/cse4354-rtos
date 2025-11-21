@@ -9,7 +9,6 @@
 ;-----------------------------------------------------------------------------
 	.global loadR3
 	.global setPC
-	.global svcCall
 	.global saveContext
 	.global restoreContext
     .global getPsp
@@ -34,14 +33,6 @@ loadR3:
 
 setPC:
 	BX R3
-
-svcYield:
-	SVC #0
-	BX LR
-
-svcSleep:
-	SVC #1
-	BX LR
 
 saveContext:
 	MRS R0, PSP

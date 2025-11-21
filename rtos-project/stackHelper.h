@@ -10,9 +10,6 @@
 extern void loadR3(uint32_t value);
 extern void setPC(void);
 
-extern void svcYield(void);
-extern void svcSleep(void);
-
 extern uint32_t * saveContext(void);
 extern void restoreContext(uint32_t * sp);
 

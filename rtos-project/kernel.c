@@ -109,6 +109,10 @@ bool initSemaphore(uint8_t semaphore, uint8_t count)
 // REQUIRED: initialize systick for 1ms system timer
 void initRtos(void)
 {
+    NVIC_ST_RELOAD_R = 39999;
+    NVIC_ST_CURRENT_R = 0;
+    NVIC_ST_CTRL_R |= NVIC_ST_CTRL_ENABLE | NVIC_ST_CTRL_INTEN | NVIC_ST_CTRL_CLK_SRC;
+
     uint8_t i;
     // no tasks running
     taskCount = 0;
@@ -199,8 +203,23 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
 
             // set stack pointer dummy variables
             uint32_t* sp = (uint32_t*)((uint32_t)stack + stackBytes);
+            *(--sp) = 0x01000000;     // xPSR
+            *(--sp) = (uint32_t)fn;  // PC
+            *(--sp) = 0xFFFFFFFD;     // LR
+            *(--sp) = 0x12121212;     // R12
+            *(--sp) = 0x03030303;     // R3
+            *(--sp) = 0x02020202;     // R2
+            *(--sp) = 0x01010101;     // R1
+            *(--sp) = 0x00000000;     // R0
+            *(--sp) = 0x11111111;     // R11
+            *(--sp) = 0x10101010;     // R10
+            *(--sp) = 0x09090909;     // R9
+            *(--sp) = 0x08080808;     // R8
+            *(--sp) = 0x07070707;     // R7
+            *(--sp) = 0x06060606;     // R6
+            *(--sp) = 0x05050505;     // R5
+            *(--sp) = 0x04040404;     // R4
             tcb[i].sp = sp;
-
             // set tcb properties
             tcb[i].state = STATE_UNRUN;
             tcb[i].pid = fn;
@@ -237,14 +256,14 @@ void setThreadPriority(_fn fn, uint8_t priority)
 // REQUIRED: modify this function to yield execution back to scheduler using pendsv
 void yield(void)
 {
-    svcYield();
+    __asm(" SVC #0 ");
 }
 
 // REQUIRED: modify this function to support 1ms system timer
 // execution yielded back to scheduler until time elapses using pendsv
 void sleep(uint32_t tick)
 {
-
+    __asm(" SVC #1 ");
 }
 
 // REQUIRED: modify this function to wait a semaphore using pendsv
@@ -261,6 +280,7 @@ void post(int8_t semaphore)
 // REQUIRED: modify this function to lock a mutex using pendsv
 void lock(int8_t mutex)
 {
+    __asm(" SVC #2 ");
 }
 
 // REQUIRED: modify this function to unlock a mutex using pendsv
@@ -332,6 +352,18 @@ void printPid(int newlines)
 // REQUIRED: in preemptive code, add code to request task switch
 void systickIsr(void)
 {
+    int i = 0;
+    for (i = 0; i < MAX_TASKS; i++)
+    {
+        if (tcb[i].state == STATE_DELAYED)
+        {
+            tcb[i].ticks--;
+            if (tcb[i].ticks == 0)
+            {
+                tcb[i].state = STATE_READY;
+            }
+        }
+    }
 }
 
 // REQUIRED: in coop and preemptive, modify this function to add support for task switching
@@ -375,7 +407,38 @@ void triggerPendSvFault()
 // REQUIRED: in preemptive code, add code to handle synchronization primitives
 void svCallIsr(void)
 {
-    triggerPendSvFault();
+    uint32_t* psp = getPsp();
+    uint32_t* stacked_pc = (uint32_t*)psp[6];
+    uint8_t* pc = (uint8_t*)stacked_pc;
+    pc = pc - 2;
+    uint8_t svcCallNum = *pc;
+
+    switch(svcCallNum) {
+        case 0:
+            triggerPendSvFault();
+            break;
+        case 1:
+            tcb[taskCurrent].state = STATE_DELAYED;
+            tcb[taskCurrent].ticks = psp[0];
+            triggerPendSvFault();
+            break;
+        case 2:
+            if (mutexes[psp[0]].lock)
+            {
+                mutexes[psp[0]].processQueue[mutexes[psp[0]].queueSize] = taskCurrent;
+                mutexes[psp[0]].queueSize++;
+                tcb[taskCurrent].state = STATE_BLOCKED_MUTEX;
+                tcb[taskCurrent].mutex = psp[0];
+                triggerPendSvFault();
+            }
+            else
+            {
+                mutexes[psp[0]].lockedBy = taskCurrent;
+                mutexes[psp[0]].lock = true;
+                tcb[taskCurrent].mutex = psp[0];
+            }
+            break;
+    }
 }
 
 
