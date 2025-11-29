@@ -111,7 +111,8 @@ void initRtos(void)
 {
     NVIC_ST_RELOAD_R = 39999;
     NVIC_ST_CURRENT_R = 0;
-    NVIC_ST_CTRL_R |= NVIC_ST_CTRL_ENABLE | NVIC_ST_CTRL_INTEN | NVIC_ST_CTRL_CLK_SRC;
+    NVIC_ST_CTRL_R |= NVIC_ST_CTRL_ENABLE | NVIC_ST_CTRL_INTEN
+            | NVIC_ST_CTRL_CLK_SRC;
 
     uint8_t i;
     // no tasks running
@@ -140,7 +141,6 @@ uint8_t rtosScheduler(void)
     return task;
 }
 
-
 // REQUIRED: modify this function to start the operating system
 // by calling scheduler, set srd bits, setting PSP, ASP bit, call fn with fn add in R0
 // fn set TMPL bit, and PC <= fn
@@ -152,9 +152,9 @@ void startRtos(void)
     // apply MPU settings to task
     applySramAccessMask(tcb[taskCurrent].srd);
 
-    uint32_t* psp = tcb[taskCurrent].sp;
+    uint32_t *psp = tcb[taskCurrent].sp;
     setPsp(psp);
-    loadR3((uint32_t)tcb[taskCurrent].pid);
+    loadR3((uint32_t) tcb[taskCurrent].pid);
     setAspBit();
     setTMPL();
     setPC();
@@ -185,7 +185,8 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
             while (tcb[i].state != STATE_INVALID)
             {
                 i++;
-                if (i >= MAX_TASKS) {
+                if (i >= MAX_TASKS)
+                {
                     // No available space in the tcb
                     return false;
                 }
@@ -193,18 +194,19 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
 
             // allocate memory for the process
             void *stack = mallocHeap(stackBytes);
-            if (stack == NULL) {
+            if (stack == NULL)
+            {
                 return false;
             }
 
             // set srd bits for tcb
             tcb[i].srd = createNoSramAccessMask();
-            addSramAccessWindow(&tcb[i].srd, (uint32_t*)stack, stackBytes);
+            addSramAccessWindow(&tcb[i].srd, (uint32_t*) stack, stackBytes);
 
             // set stack pointer dummy variables
-            uint32_t* sp = (uint32_t*)((uint32_t)stack + stackBytes);
+            uint32_t *sp = (uint32_t*) ((uint32_t) stack + stackBytes);
             *(--sp) = 0x01000000;     // xPSR
-            *(--sp) = (uint32_t)fn;  // PC
+            *(--sp) = (uint32_t) fn;  // PC
             *(--sp) = 0xFFFFFFFD;     // LR
             *(--sp) = 0x12121212;     // R12
             *(--sp) = 0x03030303;     // R3
@@ -226,7 +228,6 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
             strncpy(tcb[i].name, name, sizeof(tcb[i].name));
             tcb[i].priority = priority;
             tcb[i].currentPriority = priority;
-
 
             // increment task count
             taskCount++;
@@ -292,18 +293,20 @@ void unlock(int8_t mutex)
 void testSRAMpriv()
 {
     uint32_t *pointers[12];
-    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    uint32_t malloc_regions[10] = { 512, 1024, 512, 1536, 1024, 1024, 1024,
+                                    1024, 512, 4096 };
     int i;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 10; i++)
+    {
         pointers[i] = mallocHeap(malloc_regions[i]);
     }
     applySramAccessMask(mask);
     *pointers[2] = 10;
 
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 10; i++)
+    {
         freeHeap(pointers[i]);
     }
-
 
 }
 
@@ -311,9 +314,11 @@ void testSRAMpriv()
 void testSRAMunpriv()
 {
     uint32_t *pointers[12];
-    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    uint32_t malloc_regions[10] = { 512, 1024, 512, 1536, 1024, 1024, 1024,
+                                    1024, 512, 4096 };
     int i;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 10; i++)
+    {
         pointers[i] = mallocHeap(malloc_regions[i]);
     }
     applySramAccessMask(mask);
@@ -324,9 +329,11 @@ void testSRAMunpriv()
 void testSRAMunprivFree()
 {
     uint32_t *pointers[12];
-    uint32_t malloc_regions[10] = {512, 1024, 512, 1536, 1024, 1024, 1024, 1024, 512, 4096};
+    uint32_t malloc_regions[10] = { 512, 1024, 512, 1536, 1024, 1024, 1024,
+                                    1024, 512, 4096 };
     int i;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 10; i++)
+    {
         pointers[i] = mallocHeap(malloc_regions[i]);
     }
     freeHeap(pointers[2]);
@@ -390,7 +397,6 @@ void pendSvIsr(void)
     uint32_t debugFlags = PRINT_MFAULT_FLAGS;
     printFaultDebug(debugFlags);
 
-
     taskCurrent = rtosScheduler();
     applySramAccessMask(tcb[taskCurrent].srd);
     restoreContext(tcb[taskCurrent].sp);
@@ -402,72 +408,107 @@ void triggerPendSvFault()
     NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
 }
 
-
-
 // REQUIRED: modify this function to add support for the service call
 // REQUIRED: in preemptive code, add code to handle synchronization primitives
 void svCallIsr(void)
 {
-    uint32_t* psp = getPsp();
-    uint32_t* stacked_pc = (uint32_t*)psp[6];
-    uint8_t* pc = (uint8_t*)stacked_pc;
+    uint32_t *psp = getPsp();
+    uint32_t *stacked_pc = (uint32_t*) psp[6];
+    uint8_t *pc = (uint8_t*) stacked_pc;
     pc = pc - 2;
     uint8_t svcCallNum = *pc;
 
-    switch(svcCallNum) {
-        case 0:
+    switch (svcCallNum)
+    {
+    case 0:
+        triggerPendSvFault();
+        break;
+    case 1:
+        tcb[taskCurrent].state = STATE_DELAYED;
+        tcb[taskCurrent].ticks = psp[0];
+        triggerPendSvFault();
+        break;
+    case 2:
+        if (mutexes[psp[0]].lock)
+        {
+            mutexes[psp[0]].processQueue[mutexes[psp[0]].queueSize] =
+                    taskCurrent;
+            mutexes[psp[0]].queueSize++;
+            tcb[taskCurrent].state = STATE_BLOCKED_MUTEX;
+            tcb[taskCurrent].mutex = psp[0];
             triggerPendSvFault();
-            break;
-        case 1:
-            tcb[taskCurrent].state = STATE_DELAYED;
-            tcb[taskCurrent].ticks = psp[0];
-            triggerPendSvFault();
-            break;
-        case 2:
-            if (mutexes[psp[0]].lock)
+        }
+        else
+        {
+            mutexes[psp[0]].lockedBy = taskCurrent;
+            mutexes[psp[0]].lock = true;
+            tcb[taskCurrent].mutex = psp[0];
+        }
+        break;
+    case 3:
+        if (mutexes[psp[0]].lockedBy == taskCurrent) // Only owner can unlock
+        {
+            if (mutexes[psp[0]].queueSize > 0)
             {
-                mutexes[psp[0]].processQueue[mutexes[psp[0]].queueSize] = taskCurrent;
-                mutexes[psp[0]].queueSize++;
-                tcb[taskCurrent].state = STATE_BLOCKED_MUTEX;
-                tcb[taskCurrent].mutex = psp[0];
-                triggerPendSvFault();
+                uint8_t newMutexOwner = mutexes[psp[0]].processQueue[0];
+                tcb[newMutexOwner].state = STATE_READY;
+                mutexes[psp[0]].lockedBy = newMutexOwner;
+
+                int i = 0;
+                for (i = 0; i < mutexes[psp[0]].queueSize - 1; i++)
+                {
+                    mutexes[psp[0]].processQueue[i] =
+                            mutexes[psp[0]].processQueue[i + 1];
+                }
+
+                mutexes[psp[0]].queueSize--;
             }
             else
             {
-                mutexes[psp[0]].lockedBy = taskCurrent;
-                mutexes[psp[0]].lock = true;
-                tcb[taskCurrent].mutex = psp[0];
+                // No one waiting: just unlock
+                mutexes[psp[0]].lock = false;
+                mutexes[psp[0]].lockedBy = 0;
             }
-            break;
-        case 3:
-            if (mutexes[psp[0]].lockedBy == taskCurrent) // Only owner can unlock
+            // Update the current task's record to show it holds nothing
+            tcb[taskCurrent].mutex = 0;
+        }
+    case 4:
+        if (semaphores[psp[0]].count == 0)
+        {
+            semaphores[psp[0]].processQueue[semaphores[psp[0]].queueSize] =
+                    taskCurrent;
+            semaphores[psp[0]].queueSize++;
+            tcb[taskCurrent].state = STATE_BLOCKED_SEMAPHORE;
+            tcb[taskCurrent].semaphore = psp[0];
+            triggerPendSvFault();
+        }
+        else
+        {
+            semaphores[psp[0]].count--;
+        }
+        break;
+    case 5:
+        if (semaphores[psp[0]].queueSize > 0)
+        {
+            uint8_t waitingTask = semaphores[psp[0]].processQueue[0];
+            tcb[waitingTask].state = STATE_READY;
+            if (tcb[waitingTask].priority < tcb[taskCurrent].priority)
             {
-                if (mutexes[psp[0]].queueSize > 0)
-                {
-                    uint8_t newMutexOwner = mutexes[psp[0]].processQueue[0];
-                    tcb[newMutexOwner].state = STATE_READY;
-                    mutexes[psp[0]].lockedBy = newMutexOwner;
-
-                    int i = 0;
-                    for (i = 0; i < mutexes[psp[0]].queueSize-1; i++)
-                    {
-                        mutexes[psp[0]].processQueue[i] = mutexes[psp[0]].processQueue[i+1];
-                    }
-
-
-                    mutexes[psp[0]].queueSize--;
-                }
-                else
-                {
-                     // No one waiting: just unlock
-                     mutexes[psp[0]].lock = false;
-                     mutexes[psp[0]].lockedBy = 0;
-                }
-                // Update the current task's record to show it holds nothing
-                tcb[taskCurrent].mutex = 0;
+                triggerPendSvFault();
             }
+
+            int i = 0;
+            for (i = 0; i < semaphores[psp[0]].queueSize - 1; i++)
+            {
+                semaphores[psp[0]].processQueue[i] = semaphores[psp[0]].processQueue[i + 1];
+            }
+            semaphores[psp[0]].queueSize--;
+        }
+        else
+        {
+            semaphores[psp[0]].count++;
+        }
+        break;
     }
 }
-
-
 
