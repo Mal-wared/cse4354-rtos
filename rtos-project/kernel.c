@@ -80,6 +80,7 @@ struct _tcb
     char name[16];                 // name of task used in ps command
     uint8_t mutex;           // index of the mutex in use or blocking the thread
     uint8_t semaphore;     // index of the semaphore that is blocking the thread
+    void *stackBase;
 } tcb[MAX_TASKS];
 
 //-----------------------------------------------------------------------------
@@ -131,13 +132,35 @@ uint8_t rtosScheduler(void)
     bool ok;
     static uint8_t task = 0xFF;
     ok = false;
-    while (!ok)
+    if (priorityScheduler)
     {
-        task++;
-        if (task >= MAX_TASKS)
-            task = 0;
-        ok = (tcb[task].state == STATE_READY || tcb[task].state == STATE_UNRUN);
+        uint8_t highestPrio = 9;
+        int i = 0;
+        task = 0;
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (tcb[i].priority < highestPrio
+                    && (tcb[i].state == STATE_READY
+                            || tcb[i].state == STATE_UNRUN))
+            {
+                task = i;
+                highestPrio = tcb[task].priority;
+            }
+        }
+        ok = true;
     }
+    else
+    {
+        while (!ok)
+        {
+            task++;
+            if (task >= MAX_TASKS)
+                task = 0;
+            ok = (tcb[task].state == STATE_READY
+                    || tcb[task].state == STATE_UNRUN);
+        }
+    }
+
     return task;
 }
 
@@ -198,6 +221,7 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
             {
                 return false;
             }
+            tcb[i].stackBase = stack;
 
             // set srd bits for tcb
             tcb[i].srd = createNoSramAccessMask();
@@ -242,6 +266,7 @@ bool createThread(_fn fn, const char name[], uint8_t priority,
 //           unlock any mutexes, mark state as killed
 void killThread(_fn fn)
 {
+    __asm(" SVC #6 ");
 }
 
 // REQUIRED: modify this function to restart a thread, including creating a stack
@@ -472,6 +497,7 @@ void svCallIsr(void)
             // Update the current task's record to show it holds nothing
             tcb[taskCurrent].mutex = 0;
         }
+        break;
     case 4:
         if (semaphores[psp[0]].count == 0)
         {
@@ -500,7 +526,8 @@ void svCallIsr(void)
             int i = 0;
             for (i = 0; i < semaphores[psp[0]].queueSize - 1; i++)
             {
-                semaphores[psp[0]].processQueue[i] = semaphores[psp[0]].processQueue[i + 1];
+                semaphores[psp[0]].processQueue[i] =
+                        semaphores[psp[0]].processQueue[i + 1];
             }
             semaphores[psp[0]].queueSize--;
         }
@@ -509,6 +536,199 @@ void svCallIsr(void)
             semaphores[psp[0]].count++;
         }
         break;
+    case 6:
+    {
+        void *pidToKill = (void*) psp[0];
+        int i;
+        int taskToKill = -1;
+
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (tcb[i].state != STATE_INVALID && tcb[i].pid == pidToKill)
+            {
+                taskToKill = i;
+                break;
+            }
+        }
+
+        // no task, exit
+        if (taskToKill == -1)
+            break;
+
+        // release mutexes held by task
+        int m;
+        for (m = 0; m < MAX_MUTEXES; m++)
+        {
+            if (mutexes[m].lockedBy == taskToKill)
+            {
+                mutexes[m].lockedBy = 0;
+                mutexes[m].lock = false;
+
+                // handle passing mutex to next in queue
+                if (mutexes[m].queueSize > 0)
+                {
+                    uint8_t nextTask = mutexes[m].processQueue[0];
+                    mutexes[m].lockedBy = nextTask;
+                    mutexes[m].lock = true;
+                    tcb[nextTask].state = STATE_READY;
+
+                    // Shift queue
+                    int q;
+                    for (q = 0; q < mutexes[m].queueSize - 1; q++)
+                    {
+                        mutexes[m].processQueue[q] = mutexes[m].processQueue[q
+                                + 1];
+                    }
+                    mutexes[m].queueSize--;
+                }
+            }
+
+            // Remove task from any Mutex waiting queues
+            int q;
+            for (q = 0; q < mutexes[m].queueSize; q++)
+            {
+                if (mutexes[m].processQueue[q] == taskToKill)
+                {
+                    // Shift remaining items left to overwrite the killed task
+                    int k;
+                    for (k = q; k < mutexes[m].queueSize - 1; k++)
+                    {
+                        mutexes[m].processQueue[k] = mutexes[m].processQueue[k
+                                + 1];
+                    }
+                    mutexes[m].queueSize--;
+                    q--; // Decrement q to check the new item at this index
+                }
+            }
+        }
+
+        // post semaphores held by task
+        int s;
+        for (s = 0; s < MAX_SEMAPHORES; s++)
+        {
+            int q;
+            for (q = 0; q < semaphores[s].queueSize; q++)
+            {
+                if (semaphores[s].processQueue[q] == taskToKill)
+                {
+                    // Shift remaining items left
+                    int k;
+                    for (k = q; k < semaphores[s].queueSize - 1; k++)
+                    {
+                        semaphores[s].processQueue[k] =
+                                semaphores[s].processQueue[k + 1];
+                    }
+                    semaphores[s].queueSize--;
+                    q--;
+                }
+            }
+        }
+
+        // free memory
+        if (tcb[taskToKill].stackBase != NULL)
+        {
+            freeHeap(tcb[taskToKill].stackBase);
+        }
+
+        // mark as an invalid state, it has been effectively killed
+        tcb[taskToKill].state = STATE_INVALID;
+
+        // if task killed itself, context switch
+        if (taskToKill == taskCurrent)
+        {
+            triggerPendSvFault();
+        }
+    }
+        break;
+    }
+}
+
+void rtosPs(void)
+{
+    putsUart0("PID\t\tName\t\tState\n");
+
+    int i;
+    char buffer[12];
+
+    for (i = 0; i < MAX_TASKS; i++)
+    {
+        if (tcb[i].state != STATE_INVALID)
+        {
+            // Print PID
+            itoh((uint32_t) tcb[i].pid, buffer);
+            putsUart0(buffer);
+            putsUart0("\t\t");
+
+            // Print Name
+            putsUart0(tcb[i].name);
+            putsUart0("\t\t");
+
+            // Print State
+            itoa(tcb[i].state, buffer);
+            putsUart0(buffer);
+            putsUart0("\n");
+        }
+    }
+}
+
+void rtosIpcs(void)
+{
+    int i;
+    char buffer[12];
+
+    // Mutex usage
+    putsUart0("--- Mutexes ---\n");
+    putsUart0("Ref\tLock\tOwner\tQueue\n");
+
+    for (i = 0; i < MAX_MUTEXES; i++)
+    {
+        // Print Mutex Index
+        itoa(i, buffer);
+        putsUart0(buffer);
+        putsUart0("\t");
+
+        // Print Lock State (1 for locked, 0 for unlocked)
+        if (mutexes[i].lock)
+        {
+            putsUart0("Locked");
+        }
+        else
+        {
+            putsUart0("Unlocked");
+        }
+        putsUart0("\t");
+
+        // Print Owner Index
+        itoa(mutexes[i].lockedBy, buffer);
+        putsUart0(buffer);
+        putsUart0("\t");
+
+        // Print Queue Size
+        itoa(mutexes[i].queueSize, buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
+    }
+
+    // Semaphore usage
+    putsUart0("\n--- Semaphores ---\n");
+    putsUart0("Ref\tCount\tQueue\n");
+
+    for (i = 0; i < MAX_SEMAPHORES; i++)
+    {
+        // Print Semaphore Index
+        itoa(i, buffer);
+        putsUart0(buffer);
+        putsUart0("\t");
+
+        // Print Count
+        itoa(semaphores[i].count, buffer);
+        putsUart0(buffer);
+        putsUart0("\t");
+
+        // Print Queue Size
+        itoa(semaphores[i].queueSize, buffer);
+        putsUart0(buffer);
+        putsUart0("\n");
     }
 }
 

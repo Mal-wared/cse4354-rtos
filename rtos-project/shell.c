@@ -42,7 +42,7 @@ void reboot(void)
 
 void ps(void)
 {
-    putsUart0("PS called\n");
+    rtosPs();
 }
 
 void ipcs(void)
