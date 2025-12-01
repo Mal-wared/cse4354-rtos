@@ -295,12 +295,13 @@ void sleep(uint32_t tick)
 // REQUIRED: modify this function to wait a semaphore using pendsv
 void wait(int8_t semaphore)
 {
-
+    __asm(" SVC #4 ");
 }
 
 // REQUIRED: modify this function to signal a semaphore is available using pendsv
 void post(int8_t semaphore)
 {
+    __asm(" SVC #5 ");
 }
 
 // REQUIRED: modify this function to lock a mutex using pendsv
@@ -405,22 +406,22 @@ void pendSvIsr(void)
 {
     tcb[taskCurrent].sp = saveContext();
 
-    putsUart0("--- PENDSV HANDLER ---\n");
-    putsUart0("Pendsv in process ");
-    printPid(0);
+//    putsUart0("--- PENDSV HANDLER ---\n");
+//    putsUart0("Pendsv in process ");
+//    printPid(0);
 
     if (NVIC_FAULT_STAT_R & (NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR))
     {
         NVIC_FAULT_STAT_R &= ~(NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR);
-        putsUart0(", called from MPU\n\n");
+//        putsUart0(", called from MPU\n\n");
     }
     else
     {
-        putsUart0("\n\n");
+//        putsUart0("\n\n");
     }
 
-    uint32_t debugFlags = PRINT_MFAULT_FLAGS;
-    printFaultDebug(debugFlags);
+//    uint32_t debugFlags = PRINT_MFAULT_FLAGS;
+//    printFaultDebug(debugFlags);
 
     taskCurrent = rtosScheduler();
     applySramAccessMask(tcb[taskCurrent].srd);
@@ -640,95 +641,101 @@ void svCallIsr(void)
         }
     }
         break;
+        /*
+    case 7:
+    {
+        /*
+         putsUart0("PID\t\tName\t\tState\n");
+
+         int i;
+         char buffer[12];
+
+         for (i = 0; i < MAX_TASKS; i++)
+         {
+         if (tcb[i].state != STATE_INVALID)
+         {
+         // Print PID
+         itoh((uint32_t) tcb[i].pid, buffer);
+         putsUart0(buffer);
+         putsUart0("\t\t");
+
+         // Print Name
+         putsUart0(tcb[i].name);
+         putsUart0("\t\t");
+
+         // Print State
+         itoa(tcb[i].state, buffer);
+         putsUart0(buffer);
+         putsUart0("\n");
+         }
+         }
+
+
+    }
+        break;
+    case 8:
+    {
+        /*
+         int i;
+         char buffer[12];
+
+         // Mutex usage
+         putsUart0("--- Mutexes ---\n");
+         putsUart0("Ref\tLock\tOwner\tQueue\n");
+
+         for (i = 0; i < MAX_MUTEXES; i++)
+         {
+         // Print Mutex Index
+         itoa(i, buffer);
+         putsUart0(buffer);
+         putsUart0("\t");
+
+         // Print Lock State (1 for locked, 0 for unlocked)
+         if (mutexes[i].lock)
+         {
+         putsUart0("Locked");
+         }
+         else
+         {
+         putsUart0("Unlocked");
+         }
+         putsUart0("\t");
+
+         // Print Owner Index
+         itoa(mutexes[i].lockedBy, buffer);
+         putsUart0(buffer);
+         putsUart0("\t");
+
+         // Print Queue Size
+         itoa(mutexes[i].queueSize, buffer);
+         putsUart0(buffer);
+         putsUart0("\n");
+         }
+
+         // Semaphore usage
+         putsUart0("\n--- Semaphores ---\n");
+         putsUart0("Ref\tCount\tQueue\n");
+
+         for (i = 0; i < MAX_SEMAPHORES; i++)
+         {
+         // Print Semaphore Index
+         itoa(i, buffer);
+         putsUart0(buffer);
+         putsUart0("\t");
+
+         // Print Count
+         itoa(semaphores[i].count, buffer);
+         putsUart0(buffer);
+         putsUart0("\t");
+
+         // Print Queue Size
+         itoa(semaphores[i].queueSize, buffer);
+         putsUart0(buffer);
+         putsUart0("\n");
+         }
+
+    }
+        break;
+        */
     }
 }
-
-void rtosPs(void)
-{
-    putsUart0("PID\t\tName\t\tState\n");
-
-    int i;
-    char buffer[12];
-
-    for (i = 0; i < MAX_TASKS; i++)
-    {
-        if (tcb[i].state != STATE_INVALID)
-        {
-            // Print PID
-            itoh((uint32_t) tcb[i].pid, buffer);
-            putsUart0(buffer);
-            putsUart0("\t\t");
-
-            // Print Name
-            putsUart0(tcb[i].name);
-            putsUart0("\t\t");
-
-            // Print State
-            itoa(tcb[i].state, buffer);
-            putsUart0(buffer);
-            putsUart0("\n");
-        }
-    }
-}
-
-void rtosIpcs(void)
-{
-    int i;
-    char buffer[12];
-
-    // Mutex usage
-    putsUart0("--- Mutexes ---\n");
-    putsUart0("Ref\tLock\tOwner\tQueue\n");
-
-    for (i = 0; i < MAX_MUTEXES; i++)
-    {
-        // Print Mutex Index
-        itoa(i, buffer);
-        putsUart0(buffer);
-        putsUart0("\t");
-
-        // Print Lock State (1 for locked, 0 for unlocked)
-        if (mutexes[i].lock)
-        {
-            putsUart0("Locked");
-        }
-        else
-        {
-            putsUart0("Unlocked");
-        }
-        putsUart0("\t");
-
-        // Print Owner Index
-        itoa(mutexes[i].lockedBy, buffer);
-        putsUart0(buffer);
-        putsUart0("\t");
-
-        // Print Queue Size
-        itoa(mutexes[i].queueSize, buffer);
-        putsUart0(buffer);
-        putsUart0("\n");
-    }
-
-    // Semaphore usage
-    putsUart0("\n--- Semaphores ---\n");
-    putsUart0("Ref\tCount\tQueue\n");
-
-    for (i = 0; i < MAX_SEMAPHORES; i++)
-    {
-        // Print Semaphore Index
-        itoa(i, buffer);
-        putsUart0(buffer);
-        putsUart0("\t");
-
-        // Print Count
-        itoa(semaphores[i].count, buffer);
-        putsUart0(buffer);
-        putsUart0("\t");
-
-        // Print Queue Size
-        itoa(semaphores[i].queueSize, buffer);
-        putsUart0(buffer);
-        putsUart0("\n");
-    }
-}
-

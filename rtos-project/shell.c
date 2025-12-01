@@ -42,12 +42,12 @@ void reboot(void)
 
 void ps(void)
 {
-    rtosPs();
+
 }
 
 void ipcs(void)
 {
-    putsUart0("IPCS called\n");
+
 }
 
 void kill(uint32_t pid)
@@ -124,19 +124,21 @@ void run(const char name[])
 
 void shell(void)
 {
+    setPinValue(BLUE_LED, 1);
     USER_DATA data;
     uint8_t count = 0;
     uint8_t i = 0;
     char c;
     bool entered = false;
 
-    putsUart0("\n> ");
+    putsUart0("\r\n> ");
+    setPinValue(BLUE_LED, 0);
 
     while (true)
     {
         while (!kbhitUart0())
         {
-            yield();
+            sleep(10);
         }
 
         // Shell operates as a two-state machine via the "entered" flag
@@ -163,6 +165,7 @@ void shell(void)
             {
                 data.buffer[count] = c;
                 count++;
+                putcUart0(c);
                 if (count == MAX_CHARS)
                 {
                     data.buffer[count] = '\0';

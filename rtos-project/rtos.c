@@ -63,15 +63,14 @@ int main(void)
     initMutex(resource);
     initSemaphore(keyPressed, 1);
     initSemaphore(keyReleased, 0);
-    initSemaphore(flashReq, 5);
+    initSemaphore(flashReq, 0);
 
     // Add required idle process at lowest priority
     ok =  createThread(idle, "Idle", 7, 512);
 
     // Add other processes
 
-    ok &= createThread(lengthyFn, "Lengthy A", 6, 1024);
-    ok &= createThread(lengthyFn, "Lengthy B", 6, 1024);
+//    ok &= createThread(lengthyFn, "Lengthy A", 6, 1024);
     ok &= createThread(flash4Hz, "Flash4Hz", 4, 512);
     ok &= createThread(oneshot, "OneShot", 2, 1024);
     ok &= createThread(readKeys, "ReadKeys", 6, 512);
@@ -79,7 +78,7 @@ int main(void)
 //    ok &= createThread(important, "Important", 0, 1024);
 //    ok &= createThread(uncooperative, "Uncoop", 6, 1024);
 //    ok &= createThread(errant, "Errant", 6, 1024);
-    ok &= createThread(shell, "Shell", 6, 4096);
+    ok &= createThread(shell, "Shell", 3, 4096);
 
     //ok = 1;
 

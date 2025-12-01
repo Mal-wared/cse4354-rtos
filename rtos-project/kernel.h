@@ -72,6 +72,5 @@ void systickIsr(void);
 void pendSvIsr(void);
 void triggerPendSvFault(void);
 void svCallIsr(void);
-void rtosPs(void);
 
 #endif

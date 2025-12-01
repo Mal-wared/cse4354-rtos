@@ -177,41 +177,27 @@ void readKeys(void)
             yield();
         }
         post(keyPressed);
-        if ((buttons & (1 << 0)) != 0)
+        if ((buttons & 1) != 0)
         {
-            putsUart0("push button 1");
-            //setPinValue(YELLOW_LED, !getPinValue(YELLOW_LED));
+            setPinValue(YELLOW_LED, !getPinValue(YELLOW_LED));
             setPinValue(RED_LED, 1);
         }
-        if ((buttons & (1 << 1)) != 0)
+        if ((buttons & 2) != 0)
         {
-            putsUart0("push button 2");
-            setPinValue(ORANGE_LED, 1);
             post(flashReq);
-            //setPinValue(RED_LED, 0);
+            setPinValue(RED_LED, 0);
         }
-        if ((buttons & (1 << 2)) != 0)
+        if ((buttons & 4) != 0)
         {
-            putsUart0("push button 3");
-            setPinValue(YELLOW_LED, 1);
             restartThread(flash4Hz);
         }
-        if ((buttons & (1 << 3)) != 0)
+        if ((buttons & 8) != 0)
         {
-            putsUart0("push button 4");
-            setPinValue(GREEN_LED, 1);
             killThread(flash4Hz);
         }
-        if ((buttons & (1 << 4)) != 0)
+        if ((buttons & 16) != 0)
         {
-            putsUart0("push button 5");
-            setPinValue(BLUE_LED, 1);
-            //setThreadPriority(lengthyFn, 4);
-        }
-        if ((buttons & (1 << 5)) != 0)
-        {
-            putsUart0("push button 6");
-            //setThreadPriority(lengthyFn, 4);
+            setThreadPriority(lengthyFn, 4);
         }
         yield();
     }
