@@ -40,5 +40,10 @@ void debounce(void);
 void uncooperative(void);
 void errant(void);
 void important(void);
+void highPrioHog(void);
+void highPrioHog2(void);
+void testPiLow(void);
+void testPiMedium(void);
+void testPiHigh(void);
 
 #endif

@@ -63,8 +63,8 @@ uint8_t taskCount = 0;            // total number of valid tasks
 
 // control
 bool priorityScheduler = true;    // priority (true) or round-robin (false)
-bool priorityInheritance = false; // priority inheritance for mutexes
-bool preemption = false;          // preemption (true) or cooperative (false)
+bool priorityInheritance = true; // priority inheritance for mutexes
+bool preemption = true;          // preemption (true) or cooperative (false)
 
 // tcb
 #define NUM_PRIORITIES   8
@@ -134,19 +134,23 @@ uint8_t rtosScheduler(void)
     ok = false;
     if (priorityScheduler)
     {
-        uint8_t highestPrio = 9;
-        int i = 0;
+        uint8_t highestPrio = 255;
+        uint8_t start = (taskCurrent + 1) % MAX_TASKS;
+        int i = start;
         task = 0;
-        for (i = 0; i < MAX_TASKS; i++)
+        do
         {
-            if (tcb[i].priority < highestPrio
-                    && (tcb[i].state == STATE_READY
-                            || tcb[i].state == STATE_UNRUN))
+            if (tcb[i].state == STATE_READY || tcb[i].state == STATE_UNRUN)
             {
-                task = i;
-                highestPrio = tcb[task].priority;
+                if (tcb[i].currentPriority < highestPrio) // Check dynamic priority
+                {
+                    task = i;
+                    highestPrio = tcb[task].currentPriority;
+                }
             }
+            i = (i + 1) % MAX_TASKS; // wrap around to not pick current task for next task
         }
+        while (i != start);
         ok = true;
     }
     else
@@ -159,6 +163,16 @@ uint8_t rtosScheduler(void)
             ok = (tcb[task].state == STATE_READY
                     || tcb[task].state == STATE_UNRUN);
         }
+    }
+
+    if (task == 0xFF)
+    {
+        task = 0;
+    }
+
+    if (tcb[task].state == STATE_UNRUN)
+    {
+        tcb[task].state = STATE_READY;
     }
 
     return task;
@@ -269,9 +283,69 @@ void killThread(_fn fn)
     __asm(" SVC #6 ");
 }
 
+void destroyThread(uint32_t pid)
+{
+    __asm(" SVC #6 ");
+}
+
 // REQUIRED: modify this function to restart a thread, including creating a stack
 void restartThread(_fn fn)
 {
+    __asm(" SVC #11 ");
+}
+void restartThreadKernel(_fn fn)
+{
+    int i;
+    int taskIndex = -1;
+    for (i = 0; i < MAX_TASKS; i++)
+    {
+        if (tcb[i].pid == fn)
+        {
+            taskIndex = i;
+            break;
+        }
+    }
+
+    if (taskIndex != -1
+            && (tcb[taskIndex].state == STATE_KILLED
+                    || tcb[taskIndex].state == STATE_UNRUN))
+    {
+        uint32_t stackBytes = 1024;
+        void *stack = mallocHeap(stackBytes);
+        if (stack == NULL)
+        {
+            return;
+        }
+
+        tcb[taskIndex].stackBase = stack;
+
+        tcb[taskIndex].srd = createNoSramAccessMask();
+        addSramAccessWindow(&tcb[taskIndex].srd, (uint32_t*) stack, stackBytes);
+
+        uint32_t *sp = (uint32_t*) ((uint32_t) stack + stackBytes);
+        *(--sp) = 0x01000000;     // xPSR
+        *(--sp) = (uint32_t) fn;  // PC
+        *(--sp) = 0xFFFFFFFD;     // LR
+        *(--sp) = 0x12121212;     // R12
+        *(--sp) = 0x03030303;     // R3
+        *(--sp) = 0x02020202;     // R2
+        *(--sp) = 0x01010101;     // R1
+        *(--sp) = 0x00000000;     // R0
+        *(--sp) = 0x11111111;     // R11
+        *(--sp) = 0x10101010;     // R10
+        *(--sp) = 0x09090909;     // R9
+        *(--sp) = 0x08080808;     // R8
+        *(--sp) = 0x07070707;     // R7
+        *(--sp) = 0x06060606;     // R6
+        *(--sp) = 0x05050505;     // R5
+        *(--sp) = 0x04040404;     // R4
+
+        tcb[taskIndex].sp = sp;
+
+        // Reset State
+        tcb[taskIndex].state = STATE_READY;
+
+    }
 }
 
 // REQUIRED: modify this function to set a thread priority
@@ -398,6 +472,11 @@ void systickIsr(void)
             }
         }
     }
+
+    if (preemption)
+    {
+        triggerPendSvFault();
+    }
 }
 
 // REQUIRED: in coop and preemptive, modify this function to add support for task switching
@@ -462,6 +541,20 @@ void svCallIsr(void)
             mutexes[psp[0]].queueSize++;
             tcb[taskCurrent].state = STATE_BLOCKED_MUTEX;
             tcb[taskCurrent].mutex = psp[0];
+
+            if (priorityInheritance)
+            {
+                uint8_t owner = mutexes[psp[0]].lockedBy;
+                // If the blocked task (current) is more important than the owner
+                if (tcb[taskCurrent].currentPriority
+                        < tcb[owner].currentPriority)
+                {
+                    // Promote the owner to the higher priority
+                    tcb[owner].currentPriority =
+                            tcb[taskCurrent].currentPriority;
+                }
+            }
+
             triggerPendSvFault();
         }
         else
@@ -474,6 +567,12 @@ void svCallIsr(void)
     case 3:
         if (mutexes[psp[0]].lockedBy == taskCurrent) // Only owner can unlock
         {
+            if (priorityInheritance)
+            {
+                // Restore the task to its original base priority
+                tcb[taskCurrent].currentPriority = tcb[taskCurrent].priority;
+            }
+
             if (mutexes[psp[0]].queueSize > 0)
             {
                 uint8_t newMutexOwner = mutexes[psp[0]].processQueue[0];
@@ -539,23 +638,32 @@ void svCallIsr(void)
         break;
     case 6:
     {
-        void *pidToKill = (void*) psp[0];
-        int i;
+        uint32_t input = psp[0];
         int taskToKill = -1;
 
-        for (i = 0; i < MAX_TASKS; i++)
+        // if num is small, it's an index
+        if (input < MAX_TASKS)
         {
-            if (tcb[i].state != STATE_INVALID && tcb[i].pid == pidToKill)
+            taskToKill = input;
+        }
+        else
+        {
+            int i;
+            for (i = 0; i < MAX_TASKS; i++)
             {
-                taskToKill = i;
-                break;
+                if (tcb[i].pid == (void*) input)
+                {
+                    taskToKill = i;
+                    break;
+                }
             }
         }
 
         // no task, exit
-        if (taskToKill == -1)
+        if (taskToKill == -1 || tcb[taskToKill].state == STATE_INVALID)
+        {
             break;
-
+        }
         // release mutexes held by task
         int m;
         for (m = 0; m < MAX_MUTEXES; m++)
@@ -632,7 +740,7 @@ void svCallIsr(void)
         }
 
         // mark as an invalid state, it has been effectively killed
-        tcb[taskToKill].state = STATE_INVALID;
+        tcb[taskToKill].state = STATE_KILLED;
 
         // if task killed itself, context switch
         if (taskToKill == taskCurrent)
@@ -641,101 +749,212 @@ void svCallIsr(void)
         }
     }
         break;
-        /*
+
     case 7:
     {
-        /*
-         putsUart0("PID\t\tName\t\tState\n");
+        putsUart0("PID     Name         State    \n");
+        putsUart0("---     -----------  ------   \n");
 
-         int i;
-         char buffer[12];
+        int i;
+        char buffer[16];
 
-         for (i = 0; i < MAX_TASKS; i++)
-         {
-         if (tcb[i].state != STATE_INVALID)
-         {
-         // Print PID
-         itoh((uint32_t) tcb[i].pid, buffer);
-         putsUart0(buffer);
-         putsUart0("\t\t");
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (tcb[i].state != STATE_INVALID)
+            {
+                // Print PID
+                itoa(i, buffer);
+                putsUart0(buffer);
+                int k;
+                for (k = 0; k < (8 - strlen(buffer)); k++)
+                    putsUart0(" ");
 
-         // Print Name
-         putsUart0(tcb[i].name);
-         putsUart0("\t\t");
+                // Print Name
+                putsUart0(tcb[i].name);
+                for (k = 0; k < (13 - strlen(tcb[i].name)); k++)
+                    putsUart0(" ");
 
-         // Print State
-         itoa(tcb[i].state, buffer);
-         putsUart0(buffer);
-         putsUart0("\n");
-         }
-         }
-
-
+                switch (tcb[i].state)
+                {
+                case STATE_UNRUN:
+                    putsUart0("1: ");
+                    putsUart0("UNRUN");
+                    break;
+                case STATE_READY:
+                    putsUart0("2: ");
+                    putsUart0("READY");
+                    break;
+                case STATE_DELAYED:
+                    putsUart0("3: ");
+                    putsUart0("DELAYED");
+                    break;
+                case STATE_BLOCKED_SEMAPHORE:
+                    putsUart0("4: ");
+                    putsUart0("BLOCKED (Sem)");
+                    break;
+                case STATE_BLOCKED_MUTEX:
+                    putsUart0("5: ");
+                    putsUart0("BLOCKED (Mut)");
+                    break;
+                case STATE_KILLED:
+                    putsUart0("6: ");
+                    putsUart0("KILLED");
+                    break;
+                default:
+                    putsUart0("UNKNOWN ");
+                    break;
+                }
+                putsUart0("\n");
+            }
+        }
     }
         break;
     case 8:
     {
-        /*
-         int i;
-         char buffer[12];
 
-         // Mutex usage
-         putsUart0("--- Mutexes ---\n");
-         putsUart0("Ref\tLock\tOwner\tQueue\n");
+        int i;
+        char buffer[12];
 
-         for (i = 0; i < MAX_MUTEXES; i++)
-         {
-         // Print Mutex Index
-         itoa(i, buffer);
-         putsUart0(buffer);
-         putsUart0("\t");
+        // Mutex usage
+        putsUart0("--- Mutexes ---\n");
+        putsUart0("Ref\tLock\tOwner\tQueue\n");
 
-         // Print Lock State (1 for locked, 0 for unlocked)
-         if (mutexes[i].lock)
-         {
-         putsUart0("Locked");
-         }
-         else
-         {
-         putsUart0("Unlocked");
-         }
-         putsUart0("\t");
+        for (i = 0; i < MAX_MUTEXES; i++)
+        {
+            // Print Mutex Index
+            itoa(i, buffer);
+            putsUart0(buffer);
+            putsUart0("\t");
 
-         // Print Owner Index
-         itoa(mutexes[i].lockedBy, buffer);
-         putsUart0(buffer);
-         putsUart0("\t");
+            // Print Lock State (1 for locked, 0 for unlocked)
+            if (mutexes[i].lock)
+            {
+                putsUart0("Locked");
+            }
+            else
+            {
+                putsUart0("Unlocked");
+            }
+            putsUart0("\t");
 
-         // Print Queue Size
-         itoa(mutexes[i].queueSize, buffer);
-         putsUart0(buffer);
-         putsUart0("\n");
-         }
+            // Print Owner Index
+            itoa(mutexes[i].lockedBy, buffer);
+            putsUart0(buffer);
+            putsUart0("\t");
 
-         // Semaphore usage
-         putsUart0("\n--- Semaphores ---\n");
-         putsUart0("Ref\tCount\tQueue\n");
+            // Print Queue Size
+            itoa(mutexes[i].queueSize, buffer);
+            putsUart0(buffer);
+            putsUart0("\n");
+        }
 
-         for (i = 0; i < MAX_SEMAPHORES; i++)
-         {
-         // Print Semaphore Index
-         itoa(i, buffer);
-         putsUart0(buffer);
-         putsUart0("\t");
+        // Semaphore usage
+        putsUart0("\n--- Semaphores ---\n");
+        putsUart0("Ref\tCount\tQueue\n");
 
-         // Print Count
-         itoa(semaphores[i].count, buffer);
-         putsUart0(buffer);
-         putsUart0("\t");
+        for (i = 0; i < MAX_SEMAPHORES; i++)
+        {
+            // Print Semaphore Index
+            itoa(i, buffer);
+            putsUart0(buffer);
+            putsUart0("\t");
 
-         // Print Queue Size
-         itoa(semaphores[i].queueSize, buffer);
-         putsUart0(buffer);
-         putsUart0("\n");
-         }
+            // Print Count
+            itoa(semaphores[i].count, buffer);
+            putsUart0(buffer);
+            putsUart0("\t");
+
+            // Print Queue Size
+            itoa(semaphores[i].queueSize, buffer);
+            putsUart0(buffer);
+            putsUart0("\n");
+        }
 
     }
         break;
-        */
+    case 9:
+    {
+        int i;
+        int32_t pid = -1;
+
+        char *nameToFind = (char*) psp[0];
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (tcb[i].state != STATE_INVALID
+                    && strcmp(tcb[i].name, nameToFind) == 0)
+            {
+                pid = i;
+                break;
+            }
+        }
+        // You need to write this kernel glue
+        if (pid != -1)
+        {
+            char buffer[10];
+            itoa(pid, buffer);
+            putsUart0(buffer);
+            putsUart0("\n");
+        }
+        else
+        {
+            putsUart0("Process not found\n");
+        }
     }
+        break;
+    case 10:
+    {
+        char *name = (char*) psp[0];
+        int i;
+        // Find task by name
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (strcmp(tcb[i].name, name) == 0)
+            {
+                restartThread(tcb[i].pid); // Call the internal helper
+                break;
+            }
+        }
+    }
+        break;
+    case 11:
+        restartThreadKernel((_fn) psp[0]);
+        break;
+    case 12:
+        preemption = (bool) psp[0];
+        break;
+    case 13:
+        priorityInheritance = (bool) psp[0];
+        break;
+    }
+
+}
+
+void getPs(void)
+{
+    __asm(" SVC #7 ");
+}
+
+void getIpcs(void)
+{
+    __asm(" SVC #8 ");
+}
+
+void getPidof(void)
+{
+    __asm(" SVC #9 ");
+}
+
+void launchTask(const char name[])
+{
+    __asm(" SVC #10 ");
+}
+
+void setPreemption(bool on)
+{
+    __asm(" SVC #12 ");
+}
+
+void setPriorityInheritance(bool on)
+{
+    __asm(" SVC #13 ");
 }

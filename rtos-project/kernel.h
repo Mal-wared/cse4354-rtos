@@ -52,7 +52,9 @@ void startRtos(void);
 
 bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackBytes);
 void killThread(_fn fn);
+void destroyThread(uint32_t pid);
 void restartThread(_fn fn);
+void restartThreadKernel(_fn fn);
 void setThreadPriority(_fn fn, uint8_t priority);
 
 void yield(void);
@@ -72,5 +74,11 @@ void systickIsr(void);
 void pendSvIsr(void);
 void triggerPendSvFault(void);
 void svCallIsr(void);
+
+void getPs(void);
+void getIpcs(void);
+void getPidof(void);
+void launchTask(const char name[]);
+void setPreemption(bool on);
 
 #endif

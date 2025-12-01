@@ -63,22 +63,27 @@ int main(void)
     initMutex(resource);
     initSemaphore(keyPressed, 1);
     initSemaphore(keyReleased, 0);
-    initSemaphore(flashReq, 0);
+    initSemaphore(flashReq, 5);
 
     // Add required idle process at lowest priority
     ok =  createThread(idle, "Idle", 7, 512);
 
     // Add other processes
 
-//    ok &= createThread(lengthyFn, "Lengthy A", 6, 1024);
-    ok &= createThread(flash4Hz, "Flash4Hz", 4, 512);
-    ok &= createThread(oneshot, "OneShot", 2, 1024);
-    ok &= createThread(readKeys, "ReadKeys", 6, 512);
-    ok &= createThread(debounce, "Debounce", 6, 1024);
+//    ok &= createThread(lengthyFn, "LengthyFn", 6, 1024);
+//    ok &= createThread(flash4Hz, "Flash4Hz", 4, 512);
+//    ok &= createThread(oneshot, "OneShot", 2, 1024);
+//    ok &= createThread(readKeys, "ReadKeys", 6, 512);
+//    ok &= createThread(debounce, "Debounce", 6, 1024);
 //    ok &= createThread(important, "Important", 0, 1024);
 //    ok &= createThread(uncooperative, "Uncoop", 6, 1024);
 //    ok &= createThread(errant, "Errant", 6, 1024);
-    ok &= createThread(shell, "Shell", 3, 4096);
+    ok &= createThread(shell, "Shell", 6, 4096);
+    ok &= createThread(testPiHigh,   "High",   2, 1024); // High Priority
+    ok &= createThread(testPiMedium, "Medium", 4, 1024); // Medium Priority
+    ok &= createThread(testPiLow,    "Low",    6, 1024); // Low Priority
+//        ok &= createThread(highPrioHog, "Hog", 3, 1024);
+//        ok &= createThread(highPrioHog2, "Hog2", 3, 1024);
 
     //ok = 1;
 

@@ -26,6 +26,8 @@
 #include "tasks.h"
 #include "faults.h"
 
+extern bool preemption;
+
 // REQUIRED: Add header files here for your strings functions, ...
 
 //-----------------------------------------------------------------------------
@@ -34,7 +36,6 @@
 
 // REQUIRED: add processing for the shell commands through the UART here
 
-
 void reboot(void)
 {
     putsUart0("REBOOTING\n");
@@ -42,20 +43,23 @@ void reboot(void)
 
 void ps(void)
 {
-
+    getPs();
 }
 
 void ipcs(void)
 {
-
+    getIpcs();
 }
 
 void kill(uint32_t pid)
 {
+    // SVC #6, kills thread
+    destroyThread(pid);
+
     char pidStr[12];
     itoa(pid, pidStr);
     putsUart0(pidStr);
-    putsUart0(" killed\n");
+    putsUart0(" killed (if valid)\n");
 }
 
 void pkill(const char name[])
@@ -66,6 +70,7 @@ void pkill(const char name[])
 
 void pi(bool on)
 {
+    setPriorityInheritance(on);
     if (on)
     {
         putsUart0("pi on\n");
@@ -78,8 +83,10 @@ void pi(bool on)
 
 void preempt(bool on)
 {
+    setPreemption(on);
     if (on)
     {
+
         putsUart0("preempt on\n");
     }
     else
@@ -103,28 +110,18 @@ void sched(bool prio_on)
 
 void pidof(const char name[])
 {
-    putsUart0(name);
-    putsUart0(" launched\n");
+    getPidof();
 }
 
 void run(const char name[])
 {
-    if (getPinValue(BLUE_LED))
-    {
-        setPinValue(BLUE_LED, 0);
-        putsUart0("RED_LED turned off");
-    }
-    else
-    {
-        setPinValue(BLUE_LED, 1);
-        putsUart0("RED_LED turned on");
-    }
+    launchTask(name);
+    putsUart0("Task launched (if found)\n");
 
 }
 
 void shell(void)
 {
-    setPinValue(BLUE_LED, 1);
     USER_DATA data;
     uint8_t count = 0;
     uint8_t i = 0;
@@ -132,7 +129,6 @@ void shell(void)
     bool entered = false;
 
     putsUart0("\r\n> ");
-    setPinValue(BLUE_LED, 0);
 
     while (true)
     {
@@ -165,7 +161,6 @@ void shell(void)
             {
                 data.buffer[count] = c;
                 count++;
-                putcUart0(c);
                 if (count == MAX_CHARS)
                 {
                     data.buffer[count] = '\0';
