@@ -24,9 +24,16 @@
 #include "stackHelper.h"
 #include "util.h"
 
+
 //-----------------------------------------------------------------------------
 // Subroutines
 //-----------------------------------------------------------------------------
+
+
+void threadSafeExit(void)
+{
+    while(1);
+}
 
 // REQUIRED: If these were written in assembly
 //           omit this file and add a faults.s file
@@ -44,8 +51,15 @@ void mpuFaultIsr(void)
             | PRINT_DATA_ADDRESSES;
     printFaultDebug(debugFlags);
 
-    //NVIC_FAULT_STAT_R = (NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR);
+    forceKillThread(getTaskCurrent());
+
+    NVIC_FAULT_STAT_R = (NVIC_FAULT_STAT_DERR | NVIC_FAULT_STAT_IERR);
     triggerPendSvFault();
+
+    putsUart0("\n> ");
+    uint32_t *psp = getPsp();
+    psp[6] = (uint32_t)threadSafeExit;
+
 }
 
 // page 92 - memory model: table 2-4 memory map

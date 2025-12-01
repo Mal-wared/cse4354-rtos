@@ -1,3 +1,6 @@
+// Nicholas Nhat Tran
+// 1002027150
+
 // Faults functions
 // J Losh
 
@@ -21,6 +24,7 @@
 // Subroutines
 //-----------------------------------------------------------------------------
 
+void threadSafeExit(void);
 void mpuFaultIsr(void);
 void triggerMpuFault();
 

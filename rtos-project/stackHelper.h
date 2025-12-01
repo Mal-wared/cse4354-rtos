@@ -1,3 +1,6 @@
+// Nicholas Nhat Tran
+// 1002027150
+
 #ifndef STACK_HELPER_H_
 #define STACK_HELPER_H_
 

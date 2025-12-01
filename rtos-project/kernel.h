@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "shell.h"
 
 //-----------------------------------------------------------------------------
 // RTOS Defines and Kernel Variables
@@ -39,6 +40,15 @@ typedef void (*_fn)();
 
 // tasks
 #define MAX_TASKS 12
+
+// task states
+#define STATE_INVALID           0 // no task
+#define STATE_UNRUN             1 // task has never been run
+#define STATE_READY             2 // has run, can resume at any time
+#define STATE_DELAYED           3 // has run, but now awaiting timer
+#define STATE_BLOCKED_SEMAPHORE 4 // has run, but now blocked by semaphore
+#define STATE_BLOCKED_MUTEX     5 // has run, but now blocked by mutex
+#define STATE_KILLED            6 // task has been killed
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -75,10 +85,14 @@ void pendSvIsr(void);
 void triggerPendSvFault(void);
 void svCallIsr(void);
 
-void getPs(void);
-void getIpcs(void);
-void getPidof(void);
+bool populateTaskInfo(uint8_t index, TaskInfo *info);
+bool getResourceInfo(uint8_t type, uint8_t index, void *info);
+int32_t getPid(const char name[]);
 void launchTask(const char name[]);
 void setPreemption(bool on);
+void setPriorityInheritance(bool on);
+void setSched(bool prio_on);
+uint8_t getTaskCurrent();
+void forceKillThread(int taskIndex);
 
 #endif
