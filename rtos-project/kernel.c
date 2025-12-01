@@ -1,5 +1,5 @@
-// Kernel functions
-// J Losh
+// Nicholas Nhat Tran
+// 1002027150
 
 //-----------------------------------------------------------------------------
 // Hardware Target
@@ -81,6 +81,7 @@ struct _tcb
     uint8_t mutex;           // index of the mutex in use or blocking the thread
     uint8_t semaphore;     // index of the semaphore that is blocking the thread
     void *stackBase;
+    uint32_t time;
 } tcb[MAX_TASKS];
 
 //-----------------------------------------------------------------------------
@@ -123,6 +124,7 @@ void initRtos(void)
     {
         tcb[i].state = STATE_INVALID;
         tcb[i].pid = 0;
+        tcb[i].time = 0;
     }
 }
 
@@ -351,6 +353,7 @@ void restartThreadKernel(_fn fn)
 // REQUIRED: modify this function to set a thread priority
 void setThreadPriority(_fn fn, uint8_t priority)
 {
+    __asm(" SVC #14 ");
 }
 
 // REQUIRED: modify this function to yield execution back to scheduler using pendsv
@@ -460,6 +463,8 @@ void printPid(int newlines)
 // REQUIRED: in preemptive code, add code to request task switch
 void systickIsr(void)
 {
+    tcb[taskCurrent].time++;
+
     int i = 0;
     for (i = 0; i < MAX_TASKS; i++)
     {
@@ -752,10 +757,19 @@ void svCallIsr(void)
 
     case 7:
     {
-        putsUart0("PID     Name         State    \n");
-        putsUart0("---     -----------  ------   \n");
-
+        uint32_t totalTime = 0;
         int i;
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (tcb[i].state != STATE_INVALID)
+            {
+                totalTime += tcb[i].time;
+            }
+        }
+
+        putsUart0("PID     Name         State              CPU %\n");
+        putsUart0("---     -----------  ----------------   -----\n");
+
         char buffer[16];
 
         for (i = 0; i < MAX_TASKS; i++)
@@ -778,31 +792,57 @@ void svCallIsr(void)
                 {
                 case STATE_UNRUN:
                     putsUart0("1: ");
-                    putsUart0("UNRUN");
+                    putsUart0("UNRUN           ");
                     break;
                 case STATE_READY:
                     putsUart0("2: ");
-                    putsUart0("READY");
+                    putsUart0("READY           ");
                     break;
                 case STATE_DELAYED:
                     putsUart0("3: ");
-                    putsUart0("DELAYED");
+                    putsUart0("DELAYED         ");
                     break;
                 case STATE_BLOCKED_SEMAPHORE:
                     putsUart0("4: ");
-                    putsUart0("BLOCKED (Sem)");
+                    putsUart0("BLOCKED (Sem)   ");
                     break;
                 case STATE_BLOCKED_MUTEX:
                     putsUart0("5: ");
-                    putsUart0("BLOCKED (Mut)");
+                    putsUart0("BLOCKED (Mut)   ");
                     break;
                 case STATE_KILLED:
                     putsUart0("6: ");
-                    putsUart0("KILLED");
+                    putsUart0("KILLED           ");
                     break;
                 default:
-                    putsUart0("UNKNOWN ");
+                    putsUart0("UNKNOWN          ");
                     break;
+                }
+
+                itoa(tcb[i].priority, buffer);
+                putsUart0(buffer);
+                putsUart0("      ");
+
+                if (totalTime > 0)
+                {
+                    // calculate percentage of cpu time here
+                    uint32_t permille = (tcb[i].time * 10000) / totalTime;
+                    uint32_t integer = permille / 100;
+                    uint32_t decimal = permille % 100;
+
+                    itoa(integer, buffer);
+                    putsUart0(buffer);
+                    putsUart0(".");
+                    if (decimal < 10)
+                    {
+                        putsUart0("0"); // Leading zero for decimal
+                    }
+                    itoa(decimal, buffer);
+                    putsUart0(buffer);
+                }
+                else
+                {
+                    putsUart0("0.00");
                 }
                 putsUart0("\n");
             }
@@ -924,6 +964,30 @@ void svCallIsr(void)
         break;
     case 13:
         priorityInheritance = (bool) psp[0];
+        break;
+    case 14:
+    {
+        _fn fn = (_fn) psp[0];
+        uint8_t prio = (uint8_t) psp[1];
+
+        int i;
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            // find matching function pointer
+            if (tcb[i].pid == fn && tcb[i].state != STATE_INVALID)
+            {
+                tcb[i].priority = prio;
+
+                // if PI isn't boosting task, update current prio
+                // lowers prio
+                if (tcb[i].currentPriority > prio)
+                {
+                    tcb[i].currentPriority = prio;
+                }
+                break;
+            }
+        }
+    }
         break;
     }
 

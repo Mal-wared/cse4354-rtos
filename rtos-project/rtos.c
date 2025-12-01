@@ -1,5 +1,5 @@
-// RTOS Framework - Fall 2025
-// J Losh
+// Nicholas Nhat Tran
+// 1002027150
 
 // Student Name:
 // TO DO: Add your name on this line.
@@ -70,18 +70,20 @@ int main(void)
 
     // Add other processes
 
-//    ok &= createThread(lengthyFn, "LengthyFn", 6, 1024);
-//    ok &= createThread(flash4Hz, "Flash4Hz", 4, 512);
+    ok &= createThread(lengthyFn, "LengthyFn", 6, 1024);
+    ok &= createThread(flash4Hz, "Flash4Hz", 4, 512);
 //    ok &= createThread(oneshot, "OneShot", 2, 1024);
-//    ok &= createThread(readKeys, "ReadKeys", 6, 512);
-//    ok &= createThread(debounce, "Debounce", 6, 1024);
+    ok &= createThread(readKeys, "ReadKeys", 6, 512);
+    ok &= createThread(debounce, "Debounce", 6, 1024);
 //    ok &= createThread(important, "Important", 0, 1024);
 //    ok &= createThread(uncooperative, "Uncoop", 6, 1024);
 //    ok &= createThread(errant, "Errant", 6, 1024);
     ok &= createThread(shell, "Shell", 6, 4096);
-    ok &= createThread(testPiHigh,   "High",   2, 1024); // High Priority
-    ok &= createThread(testPiMedium, "Medium", 4, 1024); // Medium Priority
-    ok &= createThread(testPiLow,    "Low",    6, 1024); // Low Priority
+
+
+//    ok &= createThread(testPiHigh,   "High",   2, 1024); // High Priority
+//    ok &= createThread(testPiMedium, "Medium", 4, 1024); // Medium Priority
+//    ok &= createThread(testPiLow,    "Low",    6, 1024); // Low Priority
 //        ok &= createThread(highPrioHog, "Hog", 3, 1024);
 //        ok &= createThread(highPrioHog2, "Hog2", 3, 1024);
 

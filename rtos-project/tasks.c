@@ -1,5 +1,5 @@
-// Tasks
-// J Losh
+// Nicholas Nhat Tran
+// 1002027150
 
 //-----------------------------------------------------------------------------
 // Hardware Target
@@ -283,14 +283,12 @@ void testPiLow(void)
 {
     while(true)
     {
-        // 1. Grab the lock first
+        // grab lock
         lock(resource);
         setPinValue(RED_LED, 1); // RED = Low Task holding lock
 
-        // 2. Do "Long Work" (Busy wait, do NOT sleep/yield)
-        // This simulates a task processing data while holding a lock.
-        // We want this long enough that Medium would normally interrupt it.
-        waitMicrosecond(500000); // 5 seconds of work
+        // we want another task to interrupt this, so it's intentionally long
+        waitMicrosecond(500000); // 5s
 
         setPinValue(RED_LED, 0);
         unlock(resource);
@@ -300,7 +298,6 @@ void testPiLow(void)
     }
 }
 
-// Priority 4 (Medium)
 void testPiMedium(void)
 {
     while(true)
@@ -308,12 +305,10 @@ void testPiMedium(void)
         // Sleep initially to let Low get the lock first
         sleep(100);
 
-        // 3. Run and hog the CPU
-        // If PI is OFF, this task (Prio 4) will starve Low (Prio 6),
-        // preventing Low from ever releasing the lock.
-        setPinValue(ORANGE_LED, 1); // ORANGE = Medium Task running
+        // starve low prio
+        setPinValue(ORANGE_LED, 1);
 
-        waitMicrosecond(5000000); // 3 seconds of busy work
+        waitMicrosecond(5000000); // 5s
 
         setPinValue(ORANGE_LED, 0);
 
@@ -321,7 +316,6 @@ void testPiMedium(void)
     }
 }
 
-// Priority 2 (High)
 void testPiHigh(void)
 {
     while(true)

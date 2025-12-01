@@ -1,5 +1,5 @@
-// Kernel functions
-// J Losh
+// Nicholas Nhat Tran
+// 1002027150
 
 //-----------------------------------------------------------------------------
 // Hardware Target

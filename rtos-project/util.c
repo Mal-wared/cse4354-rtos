@@ -1,3 +1,6 @@
+// Nicholas Nhat Tran
+// 1002027150
+
 #include "util.h"
 #include <stdint.h>
 #include <stdbool.h>

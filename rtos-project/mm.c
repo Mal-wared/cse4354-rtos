@@ -1,3 +1,6 @@
+// Nicholas Nhat Tran
+// 1002027150
+
 // Memory manager functions
 // J Losh
 
