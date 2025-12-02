@@ -134,7 +134,8 @@ void ps(void)
                 if (info.totalTime > 0)
                 {
                     // calculate percentage of cpu time here
-                    uint32_t permille = (info.time * 10000) / info.totalTime;
+                    //uint32_t permille = (info.time * 10000) / info.totalTime;
+                    uint32_t permille = info.time;
                     uint32_t integer = permille / 100;
                     uint32_t decimal = permille % 100;
 

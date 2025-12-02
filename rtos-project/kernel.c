@@ -38,6 +38,7 @@ semaphore semaphores[MAX_SEMAPHORES];
 // task
 uint8_t taskCurrent = 0;          // index of last dispatched task
 uint8_t taskCount = 0;            // total number of valid tasks
+uint32_t totalWindowTicks = 0;
 
 // control
 bool priorityScheduler = true;    // priority (true) or round-robin (false)
@@ -60,6 +61,8 @@ struct _tcb
     uint8_t semaphore;     // index of the semaphore that is blocking the thread
     void *stackBase;
     uint32_t time;
+    uint32_t recentTicks;       // Ticks consumed in the current 1-second window
+    uint32_t usage;               // Calculated usage (0-10000) to pass to shell
 } tcb[MAX_TASKS];
 
 //-----------------------------------------------------------------------------
@@ -89,6 +92,7 @@ bool initSemaphore(uint8_t semaphore, uint8_t count)
 // REQUIRED: initialize systick for 1ms system timer
 void initRtos(void)
 {
+    totalWindowTicks = 0;
     NVIC_ST_RELOAD_R = 39999;
     NVIC_ST_CURRENT_R = 0;
     NVIC_ST_CTRL_R |= NVIC_ST_CTRL_ENABLE | NVIC_ST_CTRL_INTEN
@@ -442,6 +446,25 @@ void printPid(int newlines)
 void systickIsr(void)
 {
     tcb[taskCurrent].time++;
+    /**/
+    tcb[taskCurrent].recentTicks++;
+    totalWindowTicks++;
+
+    if (totalWindowTicks >= 1000)
+    {
+        int i;
+        for (i = 0; i < MAX_TASKS; i++)
+        {
+            if (tcb[i].state != STATE_INVALID)
+            {
+                tcb[i].usage = tcb[i].recentTicks * 10;
+                tcb[i].recentTicks = 0;
+            }
+        }
+        totalWindowTicks = 0;
+    }
+
+    /**/
 
     int i = 0;
     for (i = 0; i < MAX_TASKS; i++)
@@ -672,12 +695,17 @@ void svCallIsr(void)
             info->time = tcb[index].time;
             info->ticks = tcb[index].ticks;
 
-            // Calculate total time (optional helper logic)
-            uint32_t total = 0;
-            int k;
-            for (k = 0; k < MAX_TASKS; k++)
-                total += tcb[k].time;
-            info->totalTime = total;
+            /*
+             // Calculate total time (optional helper logic)
+             uint32_t total = 0;
+             int k;
+             for (k = 0; k < MAX_TASKS; k++)
+             total += tcb[k].time;
+             info->totalTime = total;
+             */
+
+            info->time = tcb[index].usage;
+            info->totalTime = 10000;
 
             psp[0] = 1; // Return true
         }
