@@ -50,6 +50,48 @@ typedef void (*_fn)();
 #define STATE_BLOCKED_MUTEX     5 // has run, but now blocked by mutex
 #define STATE_KILLED            6 // task has been killed
 
+typedef struct _mutex
+{
+    bool lock;
+    uint8_t queueSize;
+    uint8_t processQueue[MAX_MUTEX_QUEUE_SIZE];
+    uint8_t lockedBy;
+} mutex;
+
+typedef struct _semaphore
+{
+    uint8_t count;
+    uint8_t queueSize;
+    uint8_t processQueue[MAX_SEMAPHORE_QUEUE_SIZE];
+} semaphore;
+
+typedef struct _task_info
+{
+    uint32_t pid;
+    char name[16];
+    uint8_t state;
+    uint8_t priority;
+    uint32_t currentPriority;
+    uint32_t time;
+    uint32_t totalTime;
+    uint32_t ticks;
+} TaskInfo;
+
+typedef struct _mutex_info
+{
+    bool lock;
+    uint8_t lockedBy;
+    uint8_t queueSize;
+    uint8_t processQueue[MAX_MUTEX_QUEUE_SIZE];
+} MutexInfo;
+
+typedef struct _sem_info
+{
+    uint8_t count;
+    uint8_t queueSize;
+    uint8_t processQueue[MAX_SEMAPHORE_QUEUE_SIZE];
+} SemaphoreInfo;
+
 //-----------------------------------------------------------------------------
 // Subroutines
 //-----------------------------------------------------------------------------

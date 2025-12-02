@@ -30,22 +30,9 @@ uint64_t mask;
 //-----------------------------------------------------------------------------
 
 // mutex
-typedef struct _mutex
-{
-    bool lock;
-    uint8_t queueSize;
-    uint8_t processQueue[MAX_MUTEX_QUEUE_SIZE];
-    uint8_t lockedBy;
-} mutex;
 mutex mutexes[MAX_MUTEXES];
 
 // semaphore
-typedef struct _semaphore
-{
-    uint8_t count;
-    uint8_t queueSize;
-    uint8_t processQueue[MAX_SEMAPHORE_QUEUE_SIZE];
-} semaphore;
 semaphore semaphores[MAX_SEMAPHORES];
 
 // task
@@ -54,7 +41,7 @@ uint8_t taskCount = 0;            // total number of valid tasks
 
 // control
 bool priorityScheduler = true;    // priority (true) or round-robin (false)
-bool priorityInheritance = true; // priority inheritance for mutexes
+bool priorityInheritance = false; // priority inheritance for mutexes
 bool preemption = true;          // preemption (true) or cooperative (false)
 
 // tcb
@@ -656,7 +643,8 @@ void svCallIsr(void)
         }
 
         forceKillThread(taskToKill);
-        if (taskToKill == taskCurrent) {
+        if (taskToKill == taskCurrent)
+        {
             triggerPendSvFault();
         }
     }
@@ -699,6 +687,7 @@ void svCallIsr(void)
     {
         // Type 0: Mutex
         // Type 1: Semaphore
+        int i;
         uint8_t type = (uint8_t) psp[0];
         uint8_t index = (uint8_t) psp[1];
 
@@ -710,6 +699,10 @@ void svCallIsr(void)
                 info->lock = mutexes[index].lock;
                 info->lockedBy = mutexes[index].lockedBy;
                 info->queueSize = mutexes[index].queueSize;
+                for (i = 0; i < info->queueSize; i++)
+                {
+                    info->processQueue[i] = mutexes[index].processQueue[i];
+                }
                 psp[0] = 1; // Success
             }
             else
@@ -724,6 +717,10 @@ void svCallIsr(void)
             {
                 info->count = semaphores[index].count;
                 info->queueSize = semaphores[index].queueSize;
+                for (i = 0; i < info->queueSize; i++)
+                {
+                    info->processQueue[i] = semaphores[index].processQueue[i];
+                }
                 psp[0] = 1; // Success
             }
             else
@@ -804,7 +801,7 @@ void svCallIsr(void)
     }
         break;
     case 15:
-        priorityInheritance = (bool) psp[0];
+        priorityScheduler = (bool) psp[0];
         break;
     }
 
@@ -854,7 +851,8 @@ uint8_t getTaskCurrent()
 
 void forceKillThread(int taskIndex)
 {
-    if (taskIndex < 0|| taskIndex >= MAX_TASKS || tcb[taskIndex].state == STATE_INVALID)
+    if (taskIndex
+            < 0|| taskIndex >= MAX_TASKS || tcb[taskIndex].state == STATE_INVALID)
     {
         return;
     }

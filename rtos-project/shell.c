@@ -102,10 +102,10 @@ void ps(void)
                     break;
                 case STATE_KILLED:
                     putsUart0("6: ");
-                    putsUart0("KILLED           ");
+                    putsUart0("KILLED          ");
                     break;
                 default:
-                    putsUart0("UNKNOWN          ");
+                    putsUart0("UNKNOWN         ");
                     break;
                 }
 
@@ -166,9 +166,9 @@ void ipcs(void)
 
     // Mutexes
     putsUart0("Mutexes\n");
-    putsUart0("--------------------------------------\n");
-    putsUart0("Ref   Lock Status   Owner   Queue Size\n");
-    putsUart0("---   -----------   -----   ----------\n");
+    putsUart0("-------------------------------------------------------\n");
+    putsUart0("Ref   Lock Status   Owner   Queue Size   Queue\n");
+    putsUart0("---   -----------   -----   ----------   --------------\n");
 
     MutexInfo mInfo;
     for (i = 0; i < MAX_MUTEXES; i++)
@@ -205,16 +205,23 @@ void ipcs(void)
             // qeuue size print
             itoa(mInfo.queueSize, buffer);
             putsUart0(buffer);
-            for (k = 0; k < (8 - strlen(buffer)); k++)
+            for (k = 0; k < (13 - strlen(buffer)); k++)
                 putsUart0(" ");
+
+            for (k = 0; k < mInfo.queueSize; k++)
+            {
+                itoa(mInfo.processQueue[k], buffer);
+                putsUart0(buffer);
+                putsUart0(" ");
+            }
         }
     }
 
     // Mutexes
     putsUart0("\n\nSemaphores\n");
-    putsUart0("------------------------\n");
-    putsUart0("Ref   Count   Queue Size\n");
-    putsUart0("---   -----   ----------\n");
+    putsUart0("--------------------------------\n");
+    putsUart0("Ref   Count   Queue Size   Queue\n");
+    putsUart0("---   -----   ----------   -----\n");
 
     SemaphoreInfo sInfo;
     for (i = 0; i < MAX_SEMAPHORES; i++)
@@ -236,6 +243,16 @@ void ipcs(void)
             // queue size print
             itoa(sInfo.queueSize, buffer);
             putsUart0(buffer);
+            for (k = 0; k < (13 - strlen(buffer)); k++)
+                putsUart0(" ");
+
+            for (k = 0; k < sInfo.queueSize; k++)
+            {
+                itoa(sInfo.processQueue[k], buffer);
+                putsUart0(buffer);
+                putsUart0(" ");
+            }
+
             putsUart0("\n");
         }
     }
